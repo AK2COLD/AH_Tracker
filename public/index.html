@@ -178,6 +178,35 @@
   .refresh-btn:hover { background: var(--border); color: var(--text); }
   .empty-watchlist { text-align: center; padding: 48px 24px; color: var(--muted); }
   .empty-watchlist .big { font-size: 32px; margin-bottom: 12px; }
+
+  /* ── Action Feed ── */
+  .widget-full { margin-bottom: 16px; }
+  .action-cards { display: flex; gap: 10px; padding: 14px 16px; overflow-x: auto; flex-wrap: wrap; min-height: 64px; align-items: flex-start; }
+  .action-card { display: flex; flex-direction: column; gap: 3px; padding: 10px 14px; border-radius: 6px; border: 1px solid; min-width: 200px; max-width: 280px; flex-shrink: 0; }
+  .action-card.craft { background: #1a1500; border-color: #4a3800; }
+  .action-card.sell  { background: #1a0f00; border-color: #5a2e00; }
+  .action-card.buy   { background: #0d1f0d; border-color: #1e4a1e; }
+  .action-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 2px; }
+  .action-badge.craft { color: var(--gold); }
+  .action-badge.sell  { color: #ff8c42; }
+  .action-badge.buy   { color: var(--green); }
+  .action-card-name  { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .action-card-meta  { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .action-card-value { font-size: 12px; font-weight: 700; }
+  .action-card.craft .action-card-value { color: var(--gold); }
+  .action-card.sell  .action-card-value { color: #ff8c42; }
+  .action-card.buy   .action-card-value { color: var(--green); }
+  .action-empty { display: flex; align-items: center; justify-content: center; width: 100%; color: var(--muted); font-size: 12px; padding: 8px 0; }
+
+  /* ── Gather vs Craft ── */
+  .cvs-row { display: flex; align-items: center; padding: 7px 16px; border-bottom: 1px solid #1a1f26; gap: 10px; }
+  .cvs-row:last-child { border-bottom: none; }
+  .cvs-row:hover { background: var(--surface2); }
+  .cvs-name  { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cvs-prices { font-size: 11px; color: var(--muted); white-space: nowrap; text-align: right; }
+  .cvs-badge { border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .cvs-badge.craft { background: #1a1500; color: var(--gold);   border: 1px solid #4a3800; }
+  .cvs-badge.sell  { background: #3a1a1a; color: var(--red);    border: 1px solid #4a2a2a; }
 </style>
 </head>
 <body>
@@ -203,19 +232,51 @@
   </div>
 
   <div class="dashboard">
-    <div class="widget-grid">
 
-      <!-- Market Deals -->
+    <!-- Action Feed -->
+    <div class="widget-full">
       <div class="widget">
         <div class="widget-header">
           <div>
-            <div class="widget-title">Market Deals</div>
-            <div class="widget-subtitle">Items posted 25%+ below 7-day average</div>
+            <div class="widget-title">Today&#8217;s Actions</div>
+            <div class="widget-subtitle">What to do right now to maximise gold</div>
           </div>
-          <button class="refresh-btn" onclick="loadDeals()">&#8635; Refresh</button>
+          <button class="refresh-btn" onclick="loadCrafting();loadWatchlist()">&#8635; Refresh</button>
         </div>
-        <div class="widget-body" id="deals-body"><div class="widget-loading">Loading&hellip;</div></div>
+        <div id="action-feed"><div class="action-cards"><div class="action-empty">Loading&hellip;</div></div></div>
       </div>
+    </div>
+
+    <!-- Row 1: Crafting Profits + Gather vs Craft -->
+    <div class="widget-grid">
+
+      <!-- Crafting Profits -->
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Crafting Profits</div>
+            <div class="widget-subtitle" id="crafting-subtitle">Recipes worth crafting right now</div>
+          </div>
+          <button class="refresh-btn" onclick="loadCrafting()">&#8635; Refresh</button>
+        </div>
+        <div class="widget-body" id="crafting-body" style="max-height:480px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
+
+      <!-- Gather vs Craft -->
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Gather vs Craft</div>
+            <div class="widget-subtitle">Sell raw or use in a recipe?</div>
+          </div>
+        </div>
+        <div class="widget-body" id="cvs-body" style="max-height:480px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
+
+    </div>
+
+    <!-- Row 2: Consumables + Market Deals -->
+    <div class="widget-grid" style="margin-top:16px">
 
       <!-- Consumables Planner -->
       <div class="widget">
@@ -229,7 +290,22 @@
         <div class="widget-body" id="consumables-body"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
 
-      <!-- Price Movers -->
+      <!-- Market Deals -->
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Market Deals</div>
+            <div class="widget-subtitle">Items posted 25%+ below 7-day average</div>
+          </div>
+          <button class="refresh-btn" onclick="loadDeals()">&#8635; Refresh</button>
+        </div>
+        <div class="widget-body" id="deals-body"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
+
+    </div>
+
+    <!-- Row 3: Price Movers (full width) -->
+    <div class="widget-full" style="margin-top:16px">
       <div class="widget">
         <div class="widget-header">
           <div>
@@ -240,21 +316,8 @@
         </div>
         <div class="widget-body" id="movers-body"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
-
-      <!-- Crafting Profits -->
-      <div class="widget">
-        <div class="widget-header">
-          <div>
-            <div class="widget-title">Crafting Profits</div>
-            <div class="widget-subtitle" id="crafting-subtitle">Recipes worth crafting right now</div>
-          </div>
-          <button class="refresh-btn" onclick="loadCrafting()">&#8635; Refresh</button>
-        </div>
-        <div class="widget-body" id="crafting-body" style="max-height:520px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
-        </div>
-      </div>
-
     </div>
+
   </div>
 </div>
 
@@ -360,6 +423,8 @@ let watchlist     = [];
 let chartInstance = null;
 let selectedItem  = null;
 let searchTimer   = null;
+// Action feed: signals contributed by different loaders
+const actionSignals = { craft: [], sell: [] };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 async function apiFetch(url, opts = {}) {
@@ -507,61 +572,117 @@ async function loadConsumables() {
   }
 }
 
+// ── Action Feed ────────────────────────────────────────────────────────────
+function renderActionFeed() {
+  const all = [
+    ...actionSignals.craft,
+    ...actionSignals.sell,
+  ].sort((a, b) => {
+    // SELL first (time-sensitive), then by absolute value
+    if (a.type !== b.type) return a.type === 'SELL' ? -1 : b.type === 'SELL' ? 1 : 0;
+    return b.absValue - a.absValue;
+  });
+
+  const el = document.getElementById('action-feed');
+  if (!all.length) {
+    el.innerHTML = '<div class="action-cards"><div class="action-empty">No actions yet — data builds up over time as you scan the AH</div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="action-cards">' + all.map(s => {
+    const cls = s.type.toLowerCase();
+    return '<div class="action-card ' + cls + '">' +
+      '<div class="action-badge ' + cls + '">' + s.type + '</div>' +
+      '<div class="action-card-name">' + wowLink(s.item_id, s.item_name) + '</div>' +
+      '<div class="action-card-value">' + s.headline + '</div>' +
+      '<div class="action-card-meta">' + escHtml(s.subline) + '</div>' +
+      '</div>';
+  }).join('') + '</div>';
+}
+
 // ── Crafting widget ────────────────────────────────────────────────────────
 async function loadCrafting() {
-  const body = document.getElementById('crafting-body');
-  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  const body    = document.getElementById('crafting-body');
+  const cvsBody = document.getElementById('cvs-body');
+  body.innerHTML    = '<div class="widget-loading">Loading&hellip;</div>';
+  cvsBody.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
   try {
     const data = await apiFetch('/api/dashboard/crafting');
     if (data.needs_profile) {
-      body.innerHTML = '<div class="widget-empty"><div>No professions set</div><div class="hint"><a style="color:var(--accent);cursor:pointer" onclick="openSettings()">Add professions in Settings</a></div></div>';
+      const msg = '<div class="widget-empty"><div>No professions set</div><div class="hint"><a style="color:var(--accent);cursor:pointer" onclick="openSettings()">Add professions in Settings</a></div></div>';
+      body.innerHTML = cvsBody.innerHTML = msg;
       return;
     }
     if (!data.items || !data.items.length) {
-      body.innerHTML = '<div class="widget-empty"><div>No supported recipes</div><div class="hint">Add professions in Settings to see crafting profits</div></div>';
+      body.innerHTML    = '<div class="widget-empty"><div>No supported recipes</div><div class="hint">Add professions in Settings to see crafting profits</div></div>';
+      cvsBody.innerHTML = '<div class="widget-empty"><div>No recipe data</div></div>';
       return;
     }
-    // Show top 20 by profit, skip rows where output price is unknown
-    const rows = data.items.filter(r => r.output_price != null).slice(0, 20);
+
+    // ── Crafting Profits ──
+    const rows     = data.items.filter(r => r.output_price != null).slice(0, 20);
     const unknowns = data.items.filter(r => r.output_price == null);
     if (!rows.length) {
       body.innerHTML = '<div class="widget-empty"><div>No price data yet</div><div class="hint">Prices will appear after more Auctionator scans are imported</div></div>';
-      return;
+    } else {
+      body.innerHTML = rows.map(r => {
+        const hasMissing  = r.missing_mats && r.missing_mats.length > 0;
+        const profitKnown = r.profit != null;
+        const profitPos   = profitKnown && r.profit >= 0;
+        const profitColor = profitPos ? 'var(--green)' : 'var(--red)';
+        const profitLabel = profitKnown
+          ? '<span style="font-size:12px;color:' + profitColor + ';white-space:nowrap">' + copperToGold(Math.abs(r.profit)) + (r.profit >= 0 ? ' profit' : ' loss') + '</span>'
+          : '<span style="font-size:12px;color:#555;white-space:nowrap">profit unknown</span>';
+        const pctBadge = profitKnown && r.profit_pct != null
+          ? '<span style="font-size:11px;color:' + profitColor + ';font-weight:700;white-space:nowrap">' + (r.profit >= 0 ? '+' : '') + r.profit_pct + '%</span>'
+          : '';
+        const matsLabel = profitKnown
+          ? 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: ' + copperToGold(r.material_cost)
+          : 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: <span style="color:#555">incomplete</span>';
+        const missingNote = hasMissing
+          ? '<div style="font-size:10px;color:#555;margin-top:2px">No AH price: ' + escHtml(r.missing_mats.join(', ')) + '</div>'
+          : '';
+        return '<div class="deal-row" style="flex-direction:column;align-items:flex-start;gap:3px;padding:8px 16px">' +
+          '<div style="display:flex;align-items:center;width:100%;gap:8px">' +
+          '<span style="flex:1;font-size:13px;font-weight:500">' + wowLink(r.output_id, r.output_name) + '</span>' +
+          profitLabel + pctBadge + '</div>' +
+          '<div style="font-size:11px;color:var(--muted)">' + matsLabel + '</div>' +
+          missingNote + '</div>';
+      }).join('') +
+      (unknowns.length ? '<div style="padding:6px 16px;font-size:11px;color:#555">' + unknowns.length + ' recipe(s) missing price data</div>' : '');
     }
-    body.innerHTML = rows.map(r => {
-      const hasMissing  = r.missing_mats && r.missing_mats.length > 0;
-      const profitKnown = r.profit != null;
-      const profitPos   = profitKnown && r.profit >= 0;
-      const profitColor = profitPos ? 'var(--green)' : 'var(--red)';
 
-      const profitLabel = profitKnown
-        ? '<span style="font-size:12px;color:' + profitColor + ';white-space:nowrap">' + copperToGold(Math.abs(r.profit)) + (r.profit >= 0 ? ' profit' : ' loss') + '</span>'
-        : '<span style="font-size:12px;color:#555;white-space:nowrap">profit unknown</span>';
+    // ── Gather vs Craft ──
+    if (!data.craft_vs_sell || !data.craft_vs_sell.length) {
+      cvsBody.innerHTML = '<div class="widget-empty"><div>Not enough price data</div><div class="hint">Needs AH prices for your recipe ingredients</div></div>';
+    } else {
+      cvsBody.innerHTML = data.craft_vs_sell.map(d => {
+        const badgeCls = d.action === 'CRAFT' ? 'craft' : 'sell';
+        const sign     = d.gap_pct >= 0 ? '+' : '';
+        return '<div class="cvs-row">' +
+          '<div class="cvs-name">' + escHtml(d.name) + '</div>' +
+          '<div class="cvs-prices">Raw ' + copperToGold(d.raw_price) + '<br>Craft ' + copperToGold(d.craft_value) + ' <span style="color:#555">via ' + escHtml(d.best_recipe) + '</span></div>' +
+          '<div class="cvs-badge ' + badgeCls + '">' + d.action + ' ' + sign + d.gap_pct + '%</div>' +
+          '</div>';
+      }).join('');
+    }
 
-      const pctBadge = profitKnown && r.profit_pct != null
-        ? '<span style="font-size:11px;color:' + profitColor + ';font-weight:700;white-space:nowrap">' + (r.profit >= 0 ? '+' : '') + r.profit_pct + '%</span>'
-        : '';
+    // ── Contribute CRAFT signals to action feed ──
+    actionSignals.craft = rows
+      .filter(r => r.profit != null && r.profit_pct != null && r.profit_pct >= 15)
+      .slice(0, 5)
+      .map(r => ({
+        type:     'CRAFT',
+        item_id:  r.output_id,
+        item_name: r.output_name,
+        headline: (r.profit_pct >= 0 ? '+' : '') + r.profit_pct + '% margin',
+        subline:  copperToGold(r.profit).replace(/<[^>]+>/g,'') + ' profit per craft',
+        absValue: Math.abs(r.profit),
+      }));
+    renderActionFeed();
 
-      const matsLabel = profitKnown
-        ? 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: ' + copperToGold(r.material_cost)
-        : 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: <span style="color:#555">incomplete</span>';
-
-      const missingNote = hasMissing
-        ? '<div style="font-size:10px;color:#555;margin-top:2px">No AH price for: ' + escHtml(r.missing_mats.join(', ')) + '</div>'
-        : '';
-
-      return '<div class="deal-row" style="flex-direction:column;align-items:flex-start;gap:3px;padding:8px 16px">' +
-        '<div style="display:flex;align-items:center;width:100%;gap:8px">' +
-        '<span style="flex:1;font-size:13px;font-weight:500">' + wowLink(r.output_id, r.output_name) + '</span>' +
-        profitLabel + pctBadge +
-        '</div>' +
-        '<div style="font-size:11px;color:var(--muted)">' + matsLabel + '</div>' +
-        missingNote +
-        '</div>';
-    }).join('') +
-    (unknowns.length ? '<div style="padding:6px 16px;font-size:11px;color:#555">' + unknowns.length + ' recipe(s) missing price data</div>' : '');
   } catch(e) {
-    body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+    body.innerHTML    = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+    cvsBody.innerHTML = '<div class="widget-empty"><div>Failed to load</div></div>';
   }
 }
 
@@ -615,6 +736,25 @@ async function fetchTickerStats(itemId) {
     const sign = pct >= 0 ? '+' : '';
     changeEl.innerHTML = '<span class="ticker-change ' + cls + '">' + sign + pct + '% 24h</span>';
     metaEl.textContent = 'H: ' + formatCopper(s.high_24h) + '  L: ' + formatCopper(s.low_24h);
+
+    // Contribute SELL signals for watchlist items significantly above their prior price
+    if (pct >= 10) {
+      const item = watchlist.find(w => w.item_id === itemId);
+      if (item) {
+        actionSignals.sell = [
+          ...actionSignals.sell.filter(x => x.item_id !== itemId),
+          {
+            type:      'SELL',
+            item_id:   itemId,
+            item_name: item.item_name,
+            headline:  '+' + pct + '% vs yesterday',
+            subline:   copperToGold(s.current_price).replace(/<[^>]+>/g,'') + ' current',
+            absValue:  Math.abs(s.current_price),
+          }
+        ];
+        renderActionFeed();
+      }
+    }
   } catch(_) { /* no data yet */ }
 }
 
@@ -851,9 +991,9 @@ setInterval(() => {
   loadDeals();
   loadMovers();
   loadConsumables();
-  loadCrafting();
+  loadCrafting(); // also refreshes Gather vs Craft and Action Feed (CRAFT signals)
   if (selectedItem) loadChart(selectedItem.item_id, selectedItem.item_name);
-  watchlist.forEach(w => fetchTickerStats(w.item_id));
+  watchlist.forEach(w => fetchTickerStats(w.item_id)); // also refreshes Action Feed (SELL signals)
 }, 60_000);
 
 init();

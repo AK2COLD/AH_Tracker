@@ -14,7 +14,6 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { pool } from './db.js';
 import { getConsumablesForSpec, getSpecRole } from './data/consumables.js';
-import { RECIPES } from './data/recipes.js';
 
 // ES Modules don't have __dirname — this is the standard workaround
 const __filename = fileURLToPath(import.meta.url);
@@ -500,25 +499,36 @@ export function createApp() {
                 return base != null ? Math.round(base * (1 - discount)) : 0;
             };
 
-            // Use recipes exported from the in-game addon when available (accurate,
-            // reflects what the character actually knows). Fall back to the hardcoded
-            // RECIPES list if the player hasn't opened their tradeskill windows yet.
-            const knownRecipes = Array.isArray(profile.known_recipes) ? profile.known_recipes
+            // Build a set of recipe names the character has actually learned,
+            // exported by the in-game addon when the player opens their tradeskill
+            // windows. If the addon hasn't synced yet the set is empty and we fall
+            // back to skill-level-only filtering.
+            const knownRecipes = Array.isArray(profile.known_recipes)
+                ? profile.known_recipes
                 : JSON.parse(profile.known_recipes || '[]');
+            const knownNames = new Set(knownRecipes.map(r => r.output_name));
+            const hasKnownRecipes = knownNames.size > 0;
 
-            const recipeSource = knownRecipes.length > 0 ? knownRecipes : RECIPES;
-
-            // When using the hardcoded fallback, filter by profession + min_skill rank.
-            // When using in-game recipes, the player already knows them — just filter by profession.
+            // Query recipe_catalog for all recipes belonging to this character's
+            // professions. Ingredients come from CraftLib DB2 data (accurate).
+            // Filter: if the addon has synced known recipes, show only those;
+            // otherwise fall back to everything learnable at the character's skill rank.
             const profRanks = profile.profession_ranks || {};
-            const myRecipes = recipeSource.filter(r => {
-                if (!profs.includes(r.profession)) return false;
-                if (recipeSource === RECIPES) {
-                    const charRank = profRanks[r.profession];
-                    if (charRank != null && r.min_skill != null && charRank < r.min_skill) return false;
-                }
+            const catalogResult = await pool.query(
+                `SELECT recipe_id, recipe_name, profession, output_item_id,
+                        output_name, output_qty AS num_made, min_skill, materials
+                 FROM recipe_catalog
+                 WHERE profession = ANY($1)`,
+                [profs]
+            );
+
+            const myRecipes = catalogResult.rows.filter(r => {
+                const charRank = profRanks[r.profession] ?? 0;
+                if (r.min_skill > charRank) return false;
+                if (hasKnownRecipes) return knownNames.has(r.recipe_name);
                 return true;
             });
+
             if (!myRecipes.length) return res.json({ items: [], needs_profile: false });
 
             // Collect all unique item names we need prices for
@@ -555,6 +565,8 @@ export function createApp() {
                 }])
             );
 
+            const VENDOR_ITEMS = new Set(Object.keys(VENDOR_BASE_COSTS));
+
             const results = myRecipes.map(recipe => {
                 const output = priceMap[recipe.output_name];
                 if (!output?.current_price) {
@@ -568,7 +580,6 @@ export function createApp() {
                 // Falls back to avg_price only if no recent data exists for that item.
                 // Vendor reagents (vials): use vendor base cost with rep discount applied.
                 // AH ingredients with no price at all = incomplete; profit is nulled out.
-                const VENDOR_ITEMS = new Set(Object.keys(VENDOR_BASE_COSTS));
                 let material_cost = 0;
                 const missing = [];
                 for (const mat of recipe.materials) {
@@ -612,7 +623,62 @@ export function createApp() {
                 return b.profit - a.profit;
             });
 
-            res.json({ items: results });
+            // ── Gather vs Craft ───────────────────────────────────────────
+            // For each gatherable ingredient across all recipes, compare its
+            // raw AH price to the effective value of using it in the best recipe.
+            // effective_value = (output_price - cost_of_other_mats) / qty_of_this_ingredient
+            const ingredientValues = {};
+            for (const recipe of myRecipes) {
+                const output = priceMap[recipe.output_name];
+                if (!output?.current_price) continue;
+                const outputPrice = output.current_price * (recipe.num_made ?? 1);
+
+                for (const targetMat of recipe.materials) {
+                    if (VENDOR_ITEMS.has(targetMat.name)) continue;
+                    const rawPrice = priceMap[targetMat.name]?.current_price
+                                  ?? priceMap[targetMat.name]?.avg_price;
+                    if (!rawPrice) continue;
+
+                    let otherCost = 0;
+                    let skip = false;
+                    for (const mat of recipe.materials) {
+                        if (mat.name === targetMat.name) continue;
+                        if (VENDOR_ITEMS.has(mat.name)) {
+                            otherCost += mat.qty * vendorCost(mat.name);
+                        } else {
+                            const p = priceMap[mat.name]?.current_price ?? priceMap[mat.name]?.avg_price;
+                            if (p) otherCost += mat.qty * p;
+                            else { skip = true; break; }
+                        }
+                    }
+                    if (skip) continue;
+
+                    const effectiveValue = (outputPrice - otherCost) / targetMat.qty;
+                    if (effectiveValue <= 0) continue;
+
+                    const existing = ingredientValues[targetMat.name];
+                    if (!existing || effectiveValue > existing.craft_value) {
+                        ingredientValues[targetMat.name] = {
+                            name:           targetMat.name,
+                            raw_price:      rawPrice,
+                            craft_value:    Math.round(effectiveValue),
+                            best_recipe:    recipe.output_name,
+                            best_recipe_id: output.item_id,
+                        };
+                    }
+                }
+            }
+
+            const craft_vs_sell = Object.values(ingredientValues)
+                .map(d => ({
+                    ...d,
+                    action:  d.craft_value > d.raw_price ? 'CRAFT' : 'SELL',
+                    gap:     d.craft_value - d.raw_price,
+                    gap_pct: Math.round(((d.craft_value - d.raw_price) / d.raw_price) * 100),
+                }))
+                .sort((a, b) => Math.abs(b.gap_pct) - Math.abs(a.gap_pct));
+
+            res.json({ items: results, craft_vs_sell });
         } catch (err) {
             console.error('[api] GET /api/dashboard/crafting failed:', err.message);
             res.status(500).json({ error: 'Database error' });
