@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AH Tracker — Dreamscythe</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Wowhead tooltips — shows item tooltips on hover for any wow-item-link -->
+<script>var whTooltips = {colorLinks: false, iconizeLinks: false, renameLinks: false, hide: {footer: true}};</script>
+<script src="https://wow.zamimg.com/widgets/power.js"></script>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1f2937;
+    --border:    #30363d;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --accent:    #f0a500;
+    --green:     #3fb950;
+    --red:       #f85149;
+    --blue:      #58a6ff;
+    --gold:      #f0a500;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* ── Nav ── */
+  .nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 8px; height: 52px; position: sticky; top: 0; z-index: 100; }
+  .nav-brand { font-weight: 700; font-size: 16px; color: var(--accent); letter-spacing: 0.5px; margin-right: 16px; }
+  .nav-brand span { color: var(--muted); font-weight: 400; font-size: 13px; }
+  .tab-btn { background: none; border: none; color: var(--muted); font-size: 14px; padding: 0 14px; height: 52px; cursor: pointer; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .nav-spacer { flex: 1; }
+  .settings-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background .15s; }
+  .settings-btn:hover { background: var(--border); }
+
+  /* ── Tabs ── */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Profile Banner ── */
+  .profile-banner { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+  .profile-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--surface2); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .profile-info { flex: 1; }
+  .profile-name { font-weight: 600; font-size: 15px; }
+  .profile-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .profile-prompt a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  .profile-prompt a:hover { text-decoration: underline; }
+
+  /* ── Dashboard Grid ── */
+  .dashboard { padding: 20px 24px; }
+  .widget-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .widget-grid { grid-template-columns: 1fr; } }
+
+  /* ── Widget ── */
+  .widget { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .widget-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .widget-title { font-weight: 600; font-size: 14px; }
+  .widget-subtitle { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .widget-body { min-height: 180px; }
+  .widget-loading { display: flex; align-items: center; justify-content: center; height: 180px; color: var(--muted); font-size: 13px; }
+  .widget-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 180px; color: var(--muted); font-size: 13px; gap: 8px; }
+  .widget-empty .hint { font-size: 12px; color: #555; }
+
+  /* ── Deals widget ── */
+  .deal-row { display: flex; align-items: center; padding: 7px 16px; border-bottom: 1px solid #1a1f26; gap: 10px; }
+  .deal-row:last-child { border-bottom: none; }
+  .deal-row:hover { background: var(--surface2); }
+  .deal-name { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .deal-prices { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .deal-badge { background: #1a3a1a; color: var(--green); border: 1px solid #2a4a2a; border-radius: 4px; padding: 2px 7px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+  /* ── Movers widget ── */
+  .mover-row { display: flex; align-items: center; padding: 7px 16px; border-bottom: 1px solid #1a1f26; gap: 10px; }
+  .mover-row:last-child { border-bottom: none; }
+  .mover-row:hover { background: var(--surface2); }
+  .mover-name { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mover-prices { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .mover-badge { border-radius: 4px; padding: 2px 7px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .mover-badge.up   { background: #1a3a1a; color: var(--green); border: 1px solid #2a4a2a; }
+  .mover-badge.down { background: #3a1a1a; color: var(--red);   border: 1px solid #4a2a2a; }
+
+  /* ── Consumables widget ── */
+  .consumable-row { display: flex; align-items: center; padding: 7px 16px; border-bottom: 1px solid #1a1f26; gap: 10px; }
+  .consumable-row:last-child { border-bottom: none; }
+  .consumable-row:hover { background: var(--surface2); }
+  .consumable-type { font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; white-space: nowrap; }
+  .consumable-name { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .consumable-price { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .signal { border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .signal-buy    { background: #1a3a1a; color: var(--green); border: 1px solid #2a4a2a; }
+  .signal-normal { background: #1a2a1a; color: #6ab04c;      border: 1px solid #2a3a2a; }
+  .signal-high   { background: #3a1a1a; color: var(--red);   border: 1px solid #4a2a2a; }
+  .signal-none   { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  /* ── Crafting placeholder ── */
+  .coming-soon { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 180px; gap: 10px; }
+  .coming-soon .cs-icon  { font-size: 32px; opacity: .4; }
+  .coming-soon .cs-title { color: var(--muted); font-size: 13px; }
+  .coming-soon .cs-sub   { color: #555; font-size: 12px; text-align: center; max-width: 220px; }
+
+  /* ── Watchlist tab ── */
+  .watchlist-tab { padding: 20px 24px; }
+  .search-bar { display: flex; gap: 10px; margin-bottom: 20px; position: relative; }
+  .search-input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 9px 14px; border-radius: 6px; font-size: 14px; outline: none; transition: border-color .15s; }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+  .search-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px; z-index: 50; max-height: 260px; overflow-y: auto; display: none; }
+  .search-dropdown.open { display: block; }
+  .search-result { padding: 9px 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #1a1f26; }
+  .search-result:last-child { border-bottom: none; }
+  .search-result:hover { background: var(--surface2); }
+  .sr-name { font-size: 13px; }
+  .sr-id   { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+  /* ── Ticker cards ── */
+  .ticker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .ticker-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: border-color .15s; position: relative; }
+  .ticker-card:hover { border-color: var(--accent); }
+  .ticker-card.selected { border-color: var(--accent); background: #1a1710; }
+  .ticker-name { font-weight: 600; font-size: 13px; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 20px; }
+  .ticker-price { font-size: 20px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .ticker-change { font-size: 12px; }
+  .ticker-change.up   { color: var(--green); }
+  .ticker-change.down { color: var(--red); }
+  .ticker-change.flat { color: var(--muted); }
+  .ticker-meta { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .remove-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 3px; line-height: 1; }
+  .remove-btn:hover { color: var(--red); background: #3a1a1a; }
+
+  /* ── Chart panel ── */
+  .chart-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: none; }
+  .chart-panel.visible { display: block; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .chart-title { font-weight: 600; font-size: 15px; }
+  .chart-stats { display: flex; gap: 20px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .chart-stat-val { color: var(--text); font-weight: 600; }
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* ── Settings Modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; display: none; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; width: 520px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--surface); }
+  .modal-head h2 { font-size: 16px; font-weight: 600; }
+  .modal-close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 0 4px; line-height: 1; }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 18px 20px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 13px; outline: none; cursor: pointer; }
+  .form-select:focus { border-color: var(--accent); }
+  .form-section-title { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 10px; }
+  .prof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .prof-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .prof-check input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+  .prof-check span { font-size: 13px; }
+  .modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; position: sticky; bottom: 0; background: var(--surface); }
+  .btn-primary   { background: var(--accent); color: #000; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+  .btn-primary:hover { opacity: .85; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .btn-secondary:hover { background: var(--border); }
+
+  /* ── Gold display ── */
+  .g  { color: var(--gold); }
+  .gs { color: #c0c0c0; }
+  .gc { color: #cd7f32; }
+
+  /* ── Item links (Wowhead tooltip anchors) ── */
+  a.wow-link { color: inherit; text-decoration: none; cursor: pointer; }
+  a.wow-link:hover { text-decoration: underline; }
+
+  /* ── Misc ── */
+  .refresh-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+  .refresh-btn:hover { background: var(--border); color: var(--text); }
+  .empty-watchlist { text-align: center; padding: 48px 24px; color: var(--muted); }
+  .empty-watchlist .big { font-size: 32px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">AH Tracker <span>Dreamscythe</span></div>
+  <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
+  <button class="tab-btn"        onclick="switchTab('watchlist')">Watchlist</button>
+  <div class="nav-spacer"></div>
+  <button class="settings-btn" onclick="openSettings()">&#9881; Settings</button>
+</nav>
+
+<!-- DASHBOARD TAB -->
+<div id="tab-dashboard" class="tab-panel active">
+  <div class="profile-banner" id="profile-banner">
+    <div class="profile-avatar" id="profile-avatar">?</div>
+    <div class="profile-info" id="profile-info">
+      <div class="profile-prompt">
+        No character profile set. <a onclick="openSettings()">Configure your profile</a> to unlock the Consumables widget.
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard">
+    <div class="widget-grid">
+
+      <!-- Market Deals -->
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Market Deals</div>
+            <div class="widget-subtitle">Items posted 25%+ below 7-day average</div>
+          </div>
+          <button class="refresh-btn" onclick="loadDeals()">&#8635; Refresh</button>
+        </div>
+        <div class="widget-body" id="deals-body"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
+
+      <!-- Consumables Planner -->
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Consumables Planner</div>
+            <div class="widget-subtitle" id="consumables-subtitle">Raid consumables for your spec</div>
+          </div>
+          <button class="refresh-btn" onclick="loadConsumables()">&#8635; Refresh</button>
+        </div>
+        <div class="widget-body" id="consumables-body"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
+
+      <!-- Price Movers -->
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Price Movers</div>
+            <div class="widget-subtitle">Biggest 24h moves vs prior 7 days</div>
+          </div>
+          <button class="refresh-btn" onclick="loadMovers()">&#8635; Refresh</button>
+        </div>
+        <div class="widget-body" id="movers-body"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
+
+      <!-- Crafting Profits -->
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Crafting Profits</div>
+            <div class="widget-subtitle" id="crafting-subtitle">Recipes worth crafting right now</div>
+          </div>
+          <button class="refresh-btn" onclick="loadCrafting()">&#8635; Refresh</button>
+        </div>
+        <div class="widget-body" id="crafting-body" style="max-height:520px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- WATCHLIST TAB -->
+<div id="tab-watchlist" class="tab-panel">
+  <div class="watchlist-tab">
+    <div class="search-bar">
+      <input class="search-input" id="search-input" type="text" placeholder="Search for an item to follow&hellip;" autocomplete="off">
+      <div class="search-dropdown" id="search-dropdown"></div>
+    </div>
+    <div class="ticker-grid" id="ticker-grid"></div>
+    <div class="chart-panel" id="chart-panel">
+      <div class="chart-header">
+        <div class="chart-title" id="chart-title">&mdash;</div>
+        <div class="chart-stats" id="chart-stats"></div>
+      </div>
+      <div class="chart-wrap"><canvas id="price-chart"></canvas></div>
+    </div>
+    <div class="empty-watchlist" id="empty-watchlist" style="display:none">
+      <div class="big">&#128202;</div>
+      <p>No items in your watchlist yet.</p>
+      <p style="margin-top:6px;font-size:12px;color:#555">Search for an item above and click to follow it.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Character Settings</h2>
+      <button class="modal-close" onclick="closeSettings()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Class</label>
+          <select class="form-select" id="s-class" onchange="onClassChange()">
+            <option value="">&#8212; Select class &#8212;</option>
+            <option>Druid</option><option>Hunter</option><option>Mage</option>
+            <option>Paladin</option><option>Priest</option><option>Rogue</option>
+            <option>Shaman</option><option>Warlock</option><option>Warrior</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Specialization</label>
+          <select class="form-select" id="s-spec">
+            <option value="">&#8212; Select spec &#8212;</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Faction</label>
+          <select class="form-select" id="s-faction" onchange="onFactionChange()">
+            <option value="">&#8212; Select faction &#8212;</option>
+            <option>Alliance</option><option>Horde</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Race</label>
+          <select class="form-select" id="s-race">
+            <option value="">&#8212; Select race &#8212;</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-section-title">Primary Professions <span style="color:#555;font-weight:400;text-transform:none">(max 2)</span></div>
+      <div class="prof-grid" id="prof-primary"></div>
+      <div class="form-section-title">Secondary Professions</div>
+      <div class="prof-grid" id="prof-secondary"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary"   onclick="saveSettings()">Save Profile</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const SPECS = {
+  Druid:   ['Balance','Feral Combat','Restoration'],
+  Hunter:  ['Beast Mastery','Marksmanship','Survival'],
+  Mage:    ['Arcane','Fire','Frost'],
+  Paladin: ['Holy','Protection','Retribution'],
+  Priest:  ['Discipline','Holy','Shadow'],
+  Rogue:   ['Assassination','Combat','Subtlety'],
+  Shaman:  ['Elemental','Enhancement','Restoration'],
+  Warlock: ['Affliction','Demonology','Destruction'],
+  Warrior: ['Arms','Fury','Protection'],
+};
+const RACES_BY_FACTION = {
+  Alliance: ['Human','Dwarf','Night Elf','Gnome','Draenei'],
+  Horde:    ['Orc','Undead','Tauren','Troll','Blood Elf'],
+};
+const PRIMARY_PROFS   = ['Alchemy','Blacksmithing','Enchanting','Engineering','Herbalism','Jewelcrafting','Leatherworking','Mining','Skinning','Tailoring'];
+const SECONDARY_PROFS = ['Cooking','First Aid','Fishing'];
+const CLASS_ICONS     = {Druid:'&#127807;',Hunter:'&#127993;',Mage:'&#128302;',Paladin:'&#9876;&#65039;',Priest:'&#10024;',Rogue:'&#128481;&#65039;',Shaman:'&#9889;',Warlock:'&#128293;',Warrior:'&#128737;&#65039;'};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let profile       = null;
+let watchlist     = [];
+let chartInstance = null;
+let selectedItem  = null;
+let searchTimer   = null;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+  return res.json();
+}
+
+function copperToGold(c) {
+  if (c == null) return '&#8212;';
+  const copper = Math.round(c);
+  const g  = Math.floor(copper / 10000);
+  const s  = Math.floor((copper % 10000) / 100);
+  const co = copper % 100;
+  if (g > 0) return '<span class="g">' + g + 'g</span> <span class="gs">' + s + 's</span>';
+  if (s > 0) return '<span class="gs">' + s + 's</span> <span class="gc">' + co + 'c</span>';
+  return '<span class="gc">' + co + 'c</span>';
+}
+
+function formatCopper(c) {
+  if (c == null) return '&#8212;';
+  const g = Math.floor(c / 10000);
+  const s = Math.floor((c % 10000) / 100);
+  return g > 0 ? g + 'g ' + s + 's' : s + 's';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function wowLink(itemId, text) {
+  if (!itemId) return escHtml(text);
+  return '<a href="https://www.wowhead.com/tbc/item=' + itemId + '" class="wow-link" target="_blank" rel="noopener">' + escHtml(text) + '</a>';
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.textContent.trim().toLowerCase() === name) b.classList.add('active');
+  });
+  if (name === 'watchlist') renderWatchlist();
+}
+
+// ── Profile ────────────────────────────────────────────────────────────────
+async function loadProfile() {
+  try { profile = await apiFetch('/api/profile'); renderProfileBanner(); }
+  catch(e) { console.error('profile load failed', e); }
+}
+
+function renderProfileBanner() {
+  const avatar = document.getElementById('profile-avatar');
+  const info   = document.getElementById('profile-info');
+  if (!profile || !profile.class) {
+    avatar.innerHTML = '?';
+    info.innerHTML = '<div class="profile-prompt">No character profile set. <a onclick="openSettings()">Configure your profile</a> to unlock the Consumables widget.</div>';
+    return;
+  }
+  avatar.innerHTML = CLASS_ICONS[profile.class] || '?';
+  const profs = Array.isArray(profile.professions) ? profile.professions : JSON.parse(profile.professions || '[]');
+  info.innerHTML =
+    '<div class="profile-name">' + escHtml(profile.display_name || 'Adventurer') + '</div>' +
+    '<div class="profile-sub">' + escHtml(profile.class) + ' &mdash; ' + escHtml(profile.spec || '?') +
+    ' &middot; ' + escHtml(profile.race || '?') + ' ' + escHtml(profile.faction || '') +
+    (profs.length ? ' &middot; ' + escHtml(profs.join(', ')) : '') + '</div>';
+}
+
+// ── Deals widget ───────────────────────────────────────────────────────────
+async function loadDeals() {
+  const body = document.getElementById('deals-body');
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  try {
+    const rows = await apiFetch('/api/dashboard/deals');
+    if (!rows.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No deals found</div><div class="hint">Deals appear when items are posted 25%+ below market avg</div></div>';
+      return;
+    }
+    body.innerHTML = rows.map(r =>
+      '<div class="deal-row">' +
+      '<div class="deal-name">' + wowLink(r.item_id, r.name) + '</div>' +
+      '<div class="deal-prices">' + copperToGold(r.current_price) + ' <span style="color:#555">avg ' + copperToGold(r.avg_price) + '</span></div>' +
+      '<div class="deal-badge">-' + r.discount_pct + '%</div>' +
+      '</div>'
+    ).join('');
+  } catch(e) {
+    body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+// ── Movers widget ──────────────────────────────────────────────────────────
+async function loadMovers() {
+  const body = document.getElementById('movers-body');
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  try {
+    const rows = await apiFetch('/api/dashboard/movers');
+    if (!rows.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No significant movers</div><div class="hint">Need 7+ days of data to detect trends</div></div>';
+      return;
+    }
+    body.innerHTML = rows.map(r => {
+      const dir  = r.change_pct >= 0 ? 'up' : 'down';
+      const sign = r.change_pct >= 0 ? '&#9650; ' : '&#9660; ';
+      return '<div class="mover-row">' +
+        '<div class="mover-name">' + wowLink(r.item_id, r.name) + '</div>' +
+        '<div class="mover-prices">' + copperToGold(r.current_price) + ' <span style="color:#555">prev ' + copperToGold(r.prev_price) + '</span></div>' +
+        '<div class="mover-badge ' + dir + '">' + sign + Math.abs(r.change_pct) + '%</div>' +
+        '</div>';
+    }).join('');
+  } catch(e) {
+    body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+// ── Consumables widget ─────────────────────────────────────────────────────
+async function loadConsumables() {
+  const body = document.getElementById('consumables-body');
+  const sub  = document.getElementById('consumables-subtitle');
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  try {
+    const data = await apiFetch('/api/dashboard/consumables');
+    if (data.needs_profile) {
+      body.innerHTML = '<div class="widget-empty"><div>Profile not set</div><div class="hint"><a style="color:var(--accent);cursor:pointer" onclick="openSettings()">Set your class &amp; spec</a> to see consumables</div></div>';
+      return;
+    }
+    if (!data.items || !data.items.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No consumables found</div></div>';
+      return;
+    }
+    if (data.role) sub.textContent = data.role + ' consumables';
+    body.innerHTML = data.items.map(c => {
+      let sig = '<span class="signal signal-none">&mdash;</span>';
+      if (c.signal === 'buy')    sig = '<span class="signal signal-buy">BUY</span>';
+      else if (c.signal === 'high')   sig = '<span class="signal signal-high">HIGH</span>';
+      else if (c.signal === 'normal') sig = '<span class="signal signal-normal">OK</span>';
+      return '<div class="consumable-row">' +
+        '<span class="consumable-type">' + escHtml(c.type) + '</span>' +
+        '<span class="consumable-name" title="' + escHtml(c.note || '') + '">' + wowLink(c.item_id, c.name) + '</span>' +
+        '<span class="consumable-price">' + copperToGold(c.current_price) + '</span>' +
+        sig + '</div>';
+    }).join('');
+  } catch(e) {
+    body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+// ── Crafting widget ────────────────────────────────────────────────────────
+async function loadCrafting() {
+  const body = document.getElementById('crafting-body');
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  try {
+    const data = await apiFetch('/api/dashboard/crafting');
+    if (data.needs_profile) {
+      body.innerHTML = '<div class="widget-empty"><div>No professions set</div><div class="hint"><a style="color:var(--accent);cursor:pointer" onclick="openSettings()">Add professions in Settings</a></div></div>';
+      return;
+    }
+    if (!data.items || !data.items.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No supported recipes</div><div class="hint">Add professions in Settings to see crafting profits</div></div>';
+      return;
+    }
+    // Show top 20 by profit, skip rows where output price is unknown
+    const rows = data.items.filter(r => r.output_price != null).slice(0, 20);
+    const unknowns = data.items.filter(r => r.output_price == null);
+    if (!rows.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No price data yet</div><div class="hint">Prices will appear after more Auctionator scans are imported</div></div>';
+      return;
+    }
+    body.innerHTML = rows.map(r => {
+      const hasMissing  = r.missing_mats && r.missing_mats.length > 0;
+      const profitKnown = r.profit != null;
+      const profitPos   = profitKnown && r.profit >= 0;
+      const profitColor = profitPos ? 'var(--green)' : 'var(--red)';
+
+      const profitLabel = profitKnown
+        ? '<span style="font-size:12px;color:' + profitColor + ';white-space:nowrap">' + copperToGold(Math.abs(r.profit)) + (r.profit >= 0 ? ' profit' : ' loss') + '</span>'
+        : '<span style="font-size:12px;color:#555;white-space:nowrap">profit unknown</span>';
+
+      const pctBadge = profitKnown && r.profit_pct != null
+        ? '<span style="font-size:11px;color:' + profitColor + ';font-weight:700;white-space:nowrap">' + (r.profit >= 0 ? '+' : '') + r.profit_pct + '%</span>'
+        : '';
+
+      const matsLabel = profitKnown
+        ? 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: ' + copperToGold(r.material_cost)
+        : 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: <span style="color:#555">incomplete</span>';
+
+      const missingNote = hasMissing
+        ? '<div style="font-size:10px;color:#555;margin-top:2px">No AH price for: ' + escHtml(r.missing_mats.join(', ')) + '</div>'
+        : '';
+
+      return '<div class="deal-row" style="flex-direction:column;align-items:flex-start;gap:3px;padding:8px 16px">' +
+        '<div style="display:flex;align-items:center;width:100%;gap:8px">' +
+        '<span style="flex:1;font-size:13px;font-weight:500">' + wowLink(r.output_id, r.output_name) + '</span>' +
+        profitLabel + pctBadge +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--muted)">' + matsLabel + '</div>' +
+        missingNote +
+        '</div>';
+    }).join('') +
+    (unknowns.length ? '<div style="padding:6px 16px;font-size:11px;color:#555">' + unknowns.length + ' recipe(s) missing price data</div>' : '');
+  } catch(e) {
+    body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+// ── Watchlist ──────────────────────────────────────────────────────────────
+async function loadWatchlist() {
+  try { watchlist = await apiFetch('/api/watchlist'); renderWatchlist(); }
+  catch(e) { console.error('watchlist load failed', e); }
+}
+
+function renderWatchlist() {
+  const grid  = document.getElementById('ticker-grid');
+  const empty = document.getElementById('empty-watchlist');
+  grid.innerHTML = '';
+  if (!watchlist.length) {
+    empty.style.display = 'block';
+    document.getElementById('chart-panel').classList.remove('visible');
+    return;
+  }
+  empty.style.display = 'none';
+  watchlist.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'ticker-card' + (selectedItem && selectedItem.item_id === item.item_id ? ' selected' : '');
+    card.dataset.id = item.item_id;
+    card.innerHTML =
+      '<div class="ticker-name">' + wowLink(item.item_id, item.item_name) + '</div>' +
+      '<div class="ticker-price" id="tp-' + item.item_id + '">&hellip;</div>' +
+      '<div id="tc-' + item.item_id + '"></div>' +
+      '<div class="ticker-meta" id="tm-' + item.item_id + '"></div>' +
+      '<button class="remove-btn" title="Remove" onclick="removeItem(event,' + item.item_id + ')">&#10005;</button>';
+    card.addEventListener('click', () => selectItem(item));
+    grid.appendChild(card);
+    fetchTickerStats(item.item_id);
+  });
+  if (selectedItem) {
+    const still = watchlist.find(w => w.item_id === selectedItem.item_id);
+    if (still) loadChart(selectedItem.item_id, selectedItem.item_name);
+    else { selectedItem = null; document.getElementById('chart-panel').classList.remove('visible'); }
+  }
+}
+
+async function fetchTickerStats(itemId) {
+  try {
+    const s = await apiFetch('/api/prices/' + itemId + '/stats');
+    const priceEl  = document.getElementById('tp-' + itemId);
+    const changeEl = document.getElementById('tc-' + itemId);
+    const metaEl   = document.getElementById('tm-' + itemId);
+    if (!priceEl) return;
+    priceEl.innerHTML = copperToGold(s.current_price);
+    const pct = Number(s.change_pct_24h);
+    const cls  = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+    const sign = pct >= 0 ? '+' : '';
+    changeEl.innerHTML = '<span class="ticker-change ' + cls + '">' + sign + pct + '% 24h</span>';
+    metaEl.textContent = 'H: ' + formatCopper(s.high_24h) + '  L: ' + formatCopper(s.low_24h);
+  } catch(_) { /* no data yet */ }
+}
+
+function selectItem(item) {
+  selectedItem = item;
+  document.querySelectorAll('.ticker-card').forEach(c => c.classList.remove('selected'));
+  const card = document.querySelector('.ticker-card[data-id="' + item.item_id + '"]');
+  if (card) card.classList.add('selected');
+  loadChart(item.item_id, item.item_name);
+}
+
+async function loadChart(itemId, itemName) {
+  const panel = document.getElementById('chart-panel');
+  panel.classList.add('visible');
+  document.getElementById('chart-title').textContent = itemName;
+  document.getElementById('chart-stats').innerHTML = '';
+  try {
+    const rows = await apiFetch('/api/prices/' + itemId);
+    if (!rows.length) {
+      document.getElementById('chart-title').textContent = itemName + ' \u2014 no price history yet';
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      return;
+    }
+    const labels  = rows.map(r => new Date(r.hour).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
+    const medians = rows.map(r => (r.median_unit_price / 10000).toFixed(4));
+    const mins    = rows.map(r => (r.min_unit_price    / 10000).toFixed(4));
+    if (chartInstance) chartInstance.destroy();
+    const ctx = document.getElementById('price-chart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label:'Median',      data:medians, borderColor:'#f0a500', backgroundColor:'rgba(240,165,0,0.08)', borderWidth:2, tension:0.3, fill:true, pointRadius: rows.length<=12?4:2 },
+          { label:'Min Buyout',  data:mins,    borderColor:'#3fb950', backgroundColor:'transparent',          borderWidth:1.5, borderDash:[4,3], tension:0.3, pointRadius:0 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode:'index', intersect:false },
+        plugins: {
+          legend: { labels: { color:'#8b949e', font:{size:11} } },
+          tooltip: {
+            backgroundColor:'#1f2937', borderColor:'#30363d', borderWidth:1,
+            titleColor:'#e6edf3', bodyColor:'#8b949e',
+            callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + 'g' }
+          }
+        },
+        scales: {
+          x: { ticks:{color:'#8b949e',maxTicksLimit:8,font:{size:11}}, grid:{color:'#1a1f26'} },
+          y: { ticks:{color:'#8b949e',font:{size:11},callback:v=>v+'g'}, grid:{color:'#1a1f26'} }
+        }
+      }
+    });
+    const last = rows[rows.length - 1];
+    document.getElementById('chart-stats').innerHTML =
+      '<span>Median: <span class="chart-stat-val">' + (last.median_unit_price/10000).toFixed(2) + 'g</span></span>' +
+      '<span>Min: <span class="chart-stat-val">' + (last.min_unit_price/10000).toFixed(2) + 'g</span></span>' +
+      '<span>Supply: <span class="chart-stat-val">' + (last.total_supply ?? '&#8212;') + '</span></span>' +
+      '<span style="color:#555">' + rows.length + ' data points</span>';
+  } catch(e) {
+    document.getElementById('chart-title').textContent = itemName + ' \u2014 failed to load chart';
+  }
+}
+
+async function removeItem(e, itemId) {
+  e.stopPropagation();
+  try {
+    await apiFetch('/api/watchlist/' + itemId, { method:'DELETE' });
+    watchlist = watchlist.filter(w => w.item_id !== itemId);
+    if (selectedItem && selectedItem.item_id === itemId) {
+      selectedItem = null;
+      document.getElementById('chart-panel').classList.remove('visible');
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    }
+    renderWatchlist();
+  } catch(e) { console.error('remove failed', e); }
+}
+
+// ── Search ─────────────────────────────────────────────────────────────────
+const searchInput    = document.getElementById('search-input');
+const searchDropdown = document.getElementById('search-dropdown');
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = searchInput.value.trim();
+  if (q.length < 2) { searchDropdown.classList.remove('open'); return; }
+  searchTimer = setTimeout(() => doSearch(q), 250);
+});
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { searchDropdown.classList.remove('open'); searchInput.value = ''; }
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-bar')) searchDropdown.classList.remove('open');
+});
+
+async function doSearch(q) {
+  try {
+    const results = await apiFetch('/api/items/search?q=' + encodeURIComponent(q));
+    if (!results.length) {
+      searchDropdown.innerHTML = '<div class="search-result" style="color:var(--muted)">No results</div>';
+    } else {
+      const QUALITY_COLORS = ['#9d9d9d','#ffffff','#1eff00','#0070dd','#a335ee','#ff8000'];
+      searchDropdown.innerHTML = results.map(r => {
+        const color = QUALITY_COLORS[r.quality] || '#fff';
+        return '<div class="search-result" data-id="' + r.item_id + '" data-name="' + escHtml(r.name) + '">' +
+          '<span class="sr-name" style="color:' + color + '">' + escHtml(r.name) + '</span>' +
+          '<span class="sr-id">#' + r.item_id + '</span>' +
+          '</div>';
+      }).join('');
+      searchDropdown.querySelectorAll('.search-result[data-id]').forEach(el => {
+        el.addEventListener('click', () => addToWatchlist(Number(el.dataset.id), el.dataset.name));
+      });
+    }
+    searchDropdown.classList.add('open');
+  } catch(e) { console.error('search failed', e); }
+}
+
+async function addToWatchlist(item_id, item_name) {
+  searchDropdown.classList.remove('open');
+  searchInput.value = '';
+  try {
+    await apiFetch('/api/watchlist', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ item_id, item_name })
+    });
+    watchlist = await apiFetch('/api/watchlist');
+    renderWatchlist();
+  } catch(e) { console.error('add to watchlist failed', e); }
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────
+function openSettings() {
+  populateSettingsForm();
+  document.getElementById('settings-modal').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+
+document.getElementById('settings-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+function onClassChange() {
+  const cls     = document.getElementById('s-class').value;
+  const specSel = document.getElementById('s-spec');
+  specSel.innerHTML = '<option value="">&#8212; Select spec &#8212;</option>';
+  (SPECS[cls] || []).forEach(s => {
+    const o = document.createElement('option'); o.value = s; o.textContent = s; specSel.appendChild(o);
+  });
+}
+
+function onFactionChange() {
+  const faction = document.getElementById('s-faction').value;
+  const raceSel = document.getElementById('s-race');
+  const prev    = raceSel.value;
+  raceSel.innerHTML = '<option value="">&#8212; Select race &#8212;</option>';
+  (RACES_BY_FACTION[faction] || []).forEach(r => {
+    const o = document.createElement('option'); o.value = r; o.textContent = r; raceSel.appendChild(o);
+  });
+  if (prev && (RACES_BY_FACTION[faction] || []).includes(prev)) raceSel.value = prev;
+}
+
+function buildProfCheckboxes() {
+  const priDiv = document.getElementById('prof-primary');
+  const secDiv = document.getElementById('prof-secondary');
+  priDiv.innerHTML = PRIMARY_PROFS.map(p =>
+    '<label class="prof-check"><input type="checkbox" name="prof-pri" value="' + p + '"> <span>' + p + '</span></label>'
+  ).join('');
+  secDiv.innerHTML = SECONDARY_PROFS.map(p =>
+    '<label class="prof-check"><input type="checkbox" name="prof-sec" value="' + p + '"> <span>' + p + '</span></label>'
+  ).join('');
+  priDiv.querySelectorAll('input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if ([...priDiv.querySelectorAll('input:checked')].length > 2) cb.checked = false;
+    });
+  });
+}
+
+function populateSettingsForm() {
+  buildProfCheckboxes();
+  if (!profile) return;
+  document.getElementById('s-class').value = profile.class || '';
+  onClassChange();
+  document.getElementById('s-spec').value = profile.spec || '';
+  document.getElementById('s-faction').value = profile.faction || '';
+  onFactionChange();
+  document.getElementById('s-race').value = profile.race || '';
+  const profs = Array.isArray(profile.professions) ? profile.professions : JSON.parse(profile.professions || '[]');
+  document.querySelectorAll('#prof-primary input, #prof-secondary input').forEach(cb => {
+    cb.checked = profs.includes(cb.value);
+  });
+}
+
+async function saveSettings() {
+  const cls     = document.getElementById('s-class').value   || null;
+  const spec    = document.getElementById('s-spec').value    || null;
+  const faction = document.getElementById('s-faction').value || null;
+  const race    = document.getElementById('s-race').value    || null;
+  const profs   = [
+    ...[...document.querySelectorAll('#prof-primary input:checked')].map(c => c.value),
+    ...[...document.querySelectorAll('#prof-secondary input:checked')].map(c => c.value),
+  ];
+  try {
+    profile = await apiFetch('/api/profile', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ class: cls, spec, faction, race, professions: profs })
+    });
+    renderProfileBanner();
+    closeSettings();
+    loadConsumables();
+    loadCrafting();
+  } catch(e) { console.error('save profile failed', e); }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  await loadProfile();
+  await loadWatchlist();
+  loadDeals();
+  loadMovers();
+  loadConsumables();
+  loadCrafting();
+}
+
+// Auto-refresh every 60s
+setInterval(() => {
+  loadDeals();
+  loadMovers();
+  loadConsumables();
+  loadCrafting();
+  if (selectedItem) loadChart(selectedItem.item_id, selectedItem.item_name);
+  watchlist.forEach(w => fetchTickerStats(w.item_id));
+}, 60_000);
+
+init();
+</script>
+</body>
+</html>

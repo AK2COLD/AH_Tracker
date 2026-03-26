@@ -1,0 +1,24 @@
+{
+  "name": "ah-tracker",
+  "version": "1.0.0",
+  "description": "WoW TBC Classic Auction House price tracker with web dashboard",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.6.0",
+    "prettier": "^3.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
