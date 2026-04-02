@@ -137,7 +137,27 @@
   .chart-title { font-weight: 600; font-size: 15px; }
   .chart-stats { display: flex; gap: 20px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
   .chart-stat-val { color: var(--text); font-weight: 600; }
-  .chart-wrap { position: relative; height: 220px; }
+  .chart-wrap { position: relative; height: 240px; }
+  .range-tabs { display: flex; gap: 4px; }
+  .range-tab { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 4px; cursor: pointer; transition: all .15s; }
+  .range-tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .range-tab:hover:not(.active) { color: var(--text); border-color: #555; }
+  /* ── Weekly pattern ── */
+  .weekly-panel { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+  .weekly-title { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .weekly-bars { display: flex; gap: 6px; align-items: flex-end; height: 64px; }
+  .weekly-day { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+  .weekly-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+  .weekly-bar { width: 100%; border-radius: 3px 3px 0 0; min-height: 4px; transition: height .3s; background: var(--surface2); border: 1px solid var(--border); }
+  .weekly-bar.reset-day { background: rgba(240,165,0,0.25); border-color: var(--accent); }
+  .weekly-bar.cheapest  { background: rgba(63,185,80,0.3);  border-color: var(--green); }
+  .weekly-bar.priciest  { background: rgba(248,81,73,0.25); border-color: var(--red); }
+  .weekly-day-label { font-size: 10px; color: var(--muted); }
+  .weekly-day-label.reset-day { color: var(--accent); font-weight: 700; }
+  .weekly-day-price { font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .weekly-insight { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  .weekly-insight strong { color: var(--text); }
+  .weekly-insufficient { font-size: 12px; color: #555; margin-top: 8px; font-style: italic; }
 
   /* ── Settings Modal ── */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; display: none; align-items: center; justify-content: center; }
@@ -290,12 +310,12 @@
         <div class="widget-body" id="consumables-body"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
 
-      <!-- Market Deals -->
+      <!-- Underpriced Items -->
       <div class="widget">
         <div class="widget-header">
           <div>
-            <div class="widget-title">Market Deals</div>
-            <div class="widget-subtitle">Items posted 25%+ below 7-day average</div>
+            <div class="widget-title">Underpriced Items</div>
+            <div class="widget-subtitle">Trading 10%+ below 30-day moving average</div>
           </div>
           <button class="refresh-btn" onclick="loadDeals()">&#8635; Refresh</button>
         </div>
@@ -304,7 +324,21 @@
 
     </div>
 
-    <!-- Row 3: Price Movers (full width) -->
+    <!-- Row 3: Mote / Primal Arbitrage (full width) -->
+    <div class="widget-full" style="margin-top:16px">
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Mote &#8596; Primal Arbitrage</div>
+            <div class="widget-subtitle">10 motes = 1 primal &mdash; positive spread means buy motes &amp; combine</div>
+          </div>
+          <button class="refresh-btn" onclick="loadMotes()">&#8635; Refresh</button>
+        </div>
+        <div class="widget-body" id="motes-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
+    </div>
+
+    <!-- Row 4: Price Movers (full width) -->
     <div class="widget-full" style="margin-top:16px">
       <div class="widget">
         <div class="widget-header">
@@ -332,9 +366,19 @@
     <div class="chart-panel" id="chart-panel">
       <div class="chart-header">
         <div class="chart-title" id="chart-title">&mdash;</div>
-        <div class="chart-stats" id="chart-stats"></div>
+        <div class="range-tabs">
+          <button class="range-tab active" data-range="24h" onclick="setChartRange('24h')">24h</button>
+          <button class="range-tab" data-range="7d"  onclick="setChartRange('7d')">7d</button>
+          <button class="range-tab" data-range="30d" onclick="setChartRange('30d')">30d</button>
+        </div>
       </div>
+      <div class="chart-stats" id="chart-stats" style="margin-bottom:12px"></div>
       <div class="chart-wrap"><canvas id="price-chart"></canvas></div>
+      <div class="weekly-panel" id="weekly-panel" style="display:none">
+        <div class="weekly-title">Weekly Pattern — Avg Price by Day</div>
+        <div class="weekly-bars" id="weekly-bars"></div>
+        <div class="weekly-insight" id="weekly-insight"></div>
+      </div>
     </div>
     <div class="empty-watchlist" id="empty-watchlist" style="display:none">
       <div class="big">&#128202;</div>
@@ -494,23 +538,57 @@ function renderProfileBanner() {
     (profs.length ? ' &middot; ' + escHtml(profs.join(', ')) : '') + '</div>';
 }
 
-// ── Deals widget ───────────────────────────────────────────────────────────
+// ── Underpriced Items widget ────────────────────────────────────────────────
 async function loadDeals() {
   const body = document.getElementById('deals-body');
   body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
   try {
     const rows = await apiFetch('/api/dashboard/deals');
     if (!rows.length) {
-      body.innerHTML = '<div class="widget-empty"><div>No deals found</div><div class="hint">Deals appear when items are posted 25%+ below market avg</div></div>';
+      body.innerHTML = '<div class="widget-empty"><div>No underpriced items</div><div class="hint">Appears when recent median drops 10%+ below 30-day MA</div></div>';
       return;
     }
     body.innerHTML = rows.map(r =>
       '<div class="deal-row">' +
       '<div class="deal-name">' + wowLink(r.item_id, r.name) + '</div>' +
-      '<div class="deal-prices">' + copperToGold(r.current_price) + ' <span style="color:#555">avg ' + copperToGold(r.avg_price) + '</span></div>' +
-      '<div class="deal-badge">-' + r.discount_pct + '%</div>' +
+      '<div class="deal-prices">' + copperToGold(r.current_price) + ' <span style="color:#555">30d MA ' + copperToGold(r.moving_avg) + '</span></div>' +
+      '<div class="deal-badge" style="color:var(--green)">-' + r.discount_pct + '%</div>' +
       '</div>'
     ).join('');
+  } catch(e) {
+    body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+// ── Mote / Primal Arbitrage widget ──────────────────────────────────────────
+async function loadMotes() {
+  const body = document.getElementById('motes-body');
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  try {
+    const pairs = await apiFetch('/api/dashboard/motes');
+    if (!pairs.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No data yet</div><div class="hint">Requires price history for motes and primals on your watchlist or from scans</div></div>';
+      return;
+    }
+    body.innerHTML = pairs.map(p => {
+      const isBuy   = p.spread > 0;
+      const neutral = Math.abs(p.spread_pct) < 5;
+      const color   = neutral ? '#8b949e' : isBuy ? 'var(--green)' : 'var(--red)';
+      const badge   = neutral ? '' :
+        '<span style="font-size:11px;font-weight:700;color:' + color + ';background:' + (isBuy ? 'rgba(63,185,80,0.1)' : 'rgba(248,81,73,0.1)') + ';padding:2px 6px;border-radius:4px">' +
+        (isBuy ? 'BUY MOTES' : 'OVERSUPPLIED') + '</span>';
+      const spreadLabel = (p.spread >= 0 ? '+' : '\u2212') + copperToGold(Math.abs(p.spread)) +
+        ' (' + (p.spread >= 0 ? '+' : '') + p.spread_pct + '%)';
+      return '<div style="padding:10px 16px;border-bottom:1px solid #21262d">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
+        '<span style="font-weight:500;font-size:13px">' + wowLink(p.primal_id, p.primal_name) + '</span>' +
+        badge + '</div>' +
+        '<div style="font-size:11px;color:#8b949e;display:flex;gap:16px;flex-wrap:wrap">' +
+        '<span>10&times; ' + wowLink(p.mote_id, p.mote_name) + ': ' + copperToGold(p.bundle_cost) + '</span>' +
+        '<span>primal: ' + copperToGold(p.primal_price) + '</span>' +
+        '<span style="color:' + color + ';font-weight:600">' + spreadLabel + '</span>' +
+        '</div></div>';
+    }).join('');
   } catch(e) {
     body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
   }
@@ -619,36 +697,76 @@ async function loadCrafting() {
     }
 
     // ── Crafting Profits ──
-    const rows     = data.items.filter(r => r.output_price != null).slice(0, 20);
-    const unknowns = data.items.filter(r => r.output_price == null);
-    if (!rows.length) {
-      body.innerHTML = '<div class="widget-empty"><div>No price data yet</div><div class="hint">Prices will appear after more Auctionator scans are imported</div></div>';
+    // Separate transmutes (cooldown-gated) from regular crafts (volume-based)
+    const withPrice    = data.items.filter(r => r.output_price != null);
+    const transmutes   = withPrice.filter(r => r.output_name && r.output_name.match(/transmute/i) ||
+                                               (r.recipe_name && r.recipe_name.match(/transmute/i)));
+    // Exclude transmutes from main list; filter low-liquidity traps (< 15% sell rate)
+    const craftRows    = withPrice
+      .filter(r => !transmutes.includes(r))
+      .filter(r => r.region_sale_pct == null || r.region_sale_pct >= 0.15)
+      .slice(0, 20);
+    const lowLiq       = withPrice
+      .filter(r => !transmutes.includes(r) && r.region_sale_pct != null && r.region_sale_pct < 0.15);
+    const unknowns     = data.items.filter(r => r.output_price == null);
+
+    function craftingRow(r, isTransmute) {
+      const hasMissing  = r.missing_mats && r.missing_mats.length > 0;
+      const profitKnown = r.profit != null;
+      const profitPos   = profitKnown && r.profit >= 0;
+      const profitColor = profitPos ? 'var(--green)' : 'var(--red)';
+      const profitLabel = profitKnown
+        ? '<span style="font-size:12px;color:' + profitColor + ';white-space:nowrap">' + copperToGold(Math.abs(r.profit)) + (r.profit >= 0 ? ' profit' : ' loss') + '</span>'
+        : '<span style="font-size:12px;color:#555;white-space:nowrap">profit unknown</span>';
+      const pctBadge = profitKnown && r.profit_pct != null
+        ? '<span style="font-size:11px;color:' + profitColor + ';font-weight:700;white-space:nowrap">' + (r.profit >= 0 ? '+' : '') + r.profit_pct + '%</span>'
+        : '';
+      const matsLabel = profitKnown
+        ? 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: ' + copperToGold(r.material_cost)
+        : 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: <span style="color:#555">incomplete</span>';
+
+      // Liquidity badge from TSM regional data
+      let liqBadge = '';
+      if (r.region_sold_per_day != null || r.region_sale_pct != null) {
+        const spd     = r.region_sold_per_day != null ? r.region_sold_per_day.toFixed(1) + '/day' : '';
+        const pct     = r.region_sale_pct     != null ? Math.round(r.region_sale_pct * 100) + '%'  : '';
+        const liqVal  = r.region_sale_pct ?? 1;
+        const liqClr  = liqVal >= 0.6 ? 'var(--green)' : liqVal >= 0.3 ? '#8b949e' : 'var(--red)';
+        liqBadge = '<span style="font-size:10px;color:' + liqClr + ';white-space:nowrap">' +
+          [spd, pct].filter(Boolean).join(' · ') + '</span>';
+      }
+
+      // tsm_num_auctions is regional cloud data (not your server) — not displayed
+
+      const missingNote = hasMissing
+        ? '<div style="font-size:10px;color:#555;margin-top:2px">Missing price: ' + escHtml(r.missing_mats.join(', ')) + '</div>'
+        : '';
+      const cooldownNote = isTransmute
+        ? '<span style="font-size:10px;color:var(--accent);margin-left:4px">20h CD</span>' : '';
+
+      return '<div class="deal-row" style="flex-direction:column;align-items:flex-start;gap:3px;padding:8px 16px">' +
+        '<div style="display:flex;align-items:center;width:100%;gap:8px">' +
+        '<span style="flex:1;font-size:13px;font-weight:500">' + wowLink(r.output_id, r.output_name) + cooldownNote + '</span>' +
+        profitLabel + pctBadge + '</div>' +
+        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+        '<span style="font-size:11px;color:var(--muted)">' + matsLabel + '</span>' +
+        liqBadge + '</div>' +
+        missingNote + '</div>';
+    }
+
+    if (!craftRows.length && !transmutes.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No price data yet</div><div class="hint">Prices appear after an Auctionator scan is imported</div></div>';
     } else {
-      body.innerHTML = rows.map(r => {
-        const hasMissing  = r.missing_mats && r.missing_mats.length > 0;
-        const profitKnown = r.profit != null;
-        const profitPos   = profitKnown && r.profit >= 0;
-        const profitColor = profitPos ? 'var(--green)' : 'var(--red)';
-        const profitLabel = profitKnown
-          ? '<span style="font-size:12px;color:' + profitColor + ';white-space:nowrap">' + copperToGold(Math.abs(r.profit)) + (r.profit >= 0 ? ' profit' : ' loss') + '</span>'
-          : '<span style="font-size:12px;color:#555;white-space:nowrap">profit unknown</span>';
-        const pctBadge = profitKnown && r.profit_pct != null
-          ? '<span style="font-size:11px;color:' + profitColor + ';font-weight:700;white-space:nowrap">' + (r.profit >= 0 ? '+' : '') + r.profit_pct + '%</span>'
-          : '';
-        const matsLabel = profitKnown
-          ? 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: ' + copperToGold(r.material_cost)
-          : 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: <span style="color:#555">incomplete</span>';
-        const missingNote = hasMissing
-          ? '<div style="font-size:10px;color:#555;margin-top:2px">No AH price: ' + escHtml(r.missing_mats.join(', ')) + '</div>'
-          : '';
-        return '<div class="deal-row" style="flex-direction:column;align-items:flex-start;gap:3px;padding:8px 16px">' +
-          '<div style="display:flex;align-items:center;width:100%;gap:8px">' +
-          '<span style="flex:1;font-size:13px;font-weight:500">' + wowLink(r.output_id, r.output_name) + '</span>' +
-          profitLabel + pctBadge + '</div>' +
-          '<div style="font-size:11px;color:var(--muted)">' + matsLabel + '</div>' +
-          missingNote + '</div>';
-      }).join('') +
-      (unknowns.length ? '<div style="padding:6px 16px;font-size:11px;color:#555">' + unknowns.length + ' recipe(s) missing price data</div>' : '');
+      let html = '';
+      if (transmutes.length) {
+        html += '<div style="padding:6px 16px 2px;font-size:10px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Transmutes (cooldown)</div>';
+        html += transmutes.map(r => craftingRow(r, true)).join('');
+        if (craftRows.length) html += '<div style="padding:4px 16px 2px;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #1a1f26;margin-top:4px">Volume crafts · sorted by gold/day</div>';
+      }
+      html += craftRows.map(r => craftingRow(r, false)).join('');
+      if (lowLiq.length) html += '<div style="padding:5px 16px;font-size:11px;color:#555">' + lowLiq.length + ' low-liquidity recipe(s) hidden (&lt;15% sell rate)</div>';
+      if (unknowns.length) html += '<div style="padding:4px 16px;font-size:11px;color:#555">' + unknowns.length + ' recipe(s) missing price data</div>';
+      body.innerHTML = html;
     }
 
     // ── Gather vs Craft ──
@@ -667,15 +785,18 @@ async function loadCrafting() {
     }
 
     // ── Contribute CRAFT signals to action feed ──
-    actionSignals.craft = rows
+    // Only surface actionable items: profitable AND liquid enough to actually sell
+    actionSignals.craft = withPrice
       .filter(r => r.profit != null && r.profit_pct != null && r.profit_pct >= 15)
+      .filter(r => r.region_sale_pct == null || r.region_sale_pct >= 0.30)
       .slice(0, 5)
       .map(r => ({
         type:     'CRAFT',
         item_id:  r.output_id,
         item_name: r.output_name,
         headline: (r.profit_pct >= 0 ? '+' : '') + r.profit_pct + '% margin',
-        subline:  copperToGold(r.profit).replace(/<[^>]+>/g,'') + ' profit per craft',
+        subline:  copperToGold(r.profit).replace(/<[^>]+>/g,'') + ' profit' +
+                  (r.region_sold_per_day != null ? ' · ' + r.region_sold_per_day.toFixed(1) + '/day regionally' : ''),
         absValue: Math.abs(r.profit),
       }));
     renderActionFeed();
@@ -760,10 +881,39 @@ async function fetchTickerStats(itemId) {
 
 function selectItem(item) {
   selectedItem = item;
+  // Reset to 24h view when switching items
+  chartRange = '24h';
+  document.querySelectorAll('.range-tab').forEach(b => b.classList.toggle('active', b.dataset.range === '24h'));
   document.querySelectorAll('.ticker-card').forEach(c => c.classList.remove('selected'));
   const card = document.querySelector('.ticker-card[data-id="' + item.item_id + '"]');
   if (card) card.classList.add('selected');
   loadChart(item.item_id, item.item_name);
+}
+
+const DAY_NAMES  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const RESET_DOW  = 2; // Tuesday — US TBC Classic raid reset day
+let chartRange   = '24h';
+
+function setChartRange(range) {
+  chartRange = range;
+  document.querySelectorAll('.range-tab').forEach(b => b.classList.toggle('active', b.dataset.range === range));
+  if (selectedItem) loadChart(selectedItem.item_id, selectedItem.item_name);
+}
+
+function chartLabel(row, range) {
+  const d = new Date(row.hour);
+  if (range === '24h') return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  if (range === '7d')  return DAY_NAMES[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate();
+  return (d.getMonth()+1) + '/' + d.getDate();
+}
+
+// Returns tick color — gold for Tuesday (raid reset), normal otherwise
+function tickColors(rows, range) {
+  if (range === '24h') return '#8b949e';
+  return rows.map(r => {
+    const dow = Number(r.day_of_week ?? new Date(r.hour).getDay());
+    return dow === RESET_DOW ? '#f0a500' : '#8b949e';
+  });
 }
 
 async function loadChart(itemId, itemName) {
@@ -771,16 +921,28 @@ async function loadChart(itemId, itemName) {
   panel.classList.add('visible');
   document.getElementById('chart-title').textContent = itemName;
   document.getElementById('chart-stats').innerHTML = '';
+  document.getElementById('weekly-panel').style.display = 'none';
   try {
-    const rows = await apiFetch('/api/prices/' + itemId);
+    const rows = await apiFetch('/api/prices/' + itemId + '?range=' + chartRange);
     if (!rows.length) {
       document.getElementById('chart-title').textContent = itemName + ' \u2014 no price history yet';
       if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
       return;
     }
-    const labels  = rows.map(r => new Date(r.hour).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
-    const medians = rows.map(r => (r.median_unit_price / 10000).toFixed(4));
-    const mins    = rows.map(r => (r.min_unit_price    / 10000).toFixed(4));
+
+    const labels  = rows.map(r => chartLabel(r, chartRange));
+    const medians = rows.map(r => Math.round(r.median_unit_price) / 10000);
+    const mins    = rows.map(r => Math.round(r.min_unit_price)    / 10000);
+    const colors  = tickColors(rows, chartRange);
+
+    // Rolling moving average over the median line — window adapts to range
+    const maWindow = chartRange === '30d' ? 7 : chartRange === '7d' ? 3 : 6;
+    const maData   = medians.map((_, i) => {
+      const slice = medians.slice(Math.max(0, i - maWindow + 1), i + 1).filter(v => v != null);
+      return slice.length ? +(slice.reduce((a, b) => a + b, 0) / slice.length).toFixed(4) : null;
+    });
+    const maLabel  = chartRange === '30d' ? '7-day MA' : chartRange === '7d' ? '3-day MA' : '6h MA';
+
     if (chartInstance) chartInstance.destroy();
     const ctx = document.getElementById('price-chart').getContext('2d');
     chartInstance = new Chart(ctx, {
@@ -788,8 +950,9 @@ async function loadChart(itemId, itemName) {
       data: {
         labels,
         datasets: [
-          { label:'Median',      data:medians, borderColor:'#f0a500', backgroundColor:'rgba(240,165,0,0.08)', borderWidth:2, tension:0.3, fill:true, pointRadius: rows.length<=12?4:2 },
-          { label:'Min Buyout',  data:mins,    borderColor:'#3fb950', backgroundColor:'transparent',          borderWidth:1.5, borderDash:[4,3], tension:0.3, pointRadius:0 }
+          { label:'Median',     data:medians, borderColor:'#f0a500', backgroundColor:'rgba(240,165,0,0.08)', borderWidth:2, tension:0.3, fill:true,        pointRadius: rows.length<=14 ? 4 : 2 },
+          { label:'Min Buyout', data:mins,    borderColor:'#3fb950', backgroundColor:'transparent',          borderWidth:1.5, borderDash:[4,3], tension:0.3, pointRadius:0 },
+          { label:maLabel,      data:maData,  borderColor:'#6e7681', backgroundColor:'transparent',          borderWidth:1.5, borderDash:[2,2], tension:0.3, pointRadius:0 },
         ]
       },
       options: {
@@ -800,23 +963,122 @@ async function loadChart(itemId, itemName) {
           tooltip: {
             backgroundColor:'#1f2937', borderColor:'#30363d', borderWidth:1,
             titleColor:'#e6edf3', bodyColor:'#8b949e',
-            callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + 'g' }
+            callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.parsed.y.toFixed(2) + 'g' }
           }
         },
         scales: {
-          x: { ticks:{color:'#8b949e',maxTicksLimit:8,font:{size:11}}, grid:{color:'#1a1f26'} },
-          y: { ticks:{color:'#8b949e',font:{size:11},callback:v=>v+'g'}, grid:{color:'#1a1f26'} }
+          x: {
+            ticks: {
+              color: colors,
+              maxTicksLimit: chartRange === '24h' ? 8 : rows.length,
+              font:{size:11}
+            },
+            grid:{color:'#1a1f26'}
+          },
+          y: { ticks:{color:'#8b949e',font:{size:11},callback:v=>parseFloat(v.toFixed(2))+'g'}, grid:{color:'#1a1f26'} }
         }
       }
     });
-    const last = rows[rows.length - 1];
+
+    // Stats bar
+    const first = rows[0];
+    const last  = rows[rows.length - 1];
+    const trend = last.median_unit_price - first.median_unit_price;
+    const trendPct = first.median_unit_price > 0 ? Math.round((trend / first.median_unit_price) * 100) : 0;
+    const trendColor = trend > 0 ? 'var(--red)' : trend < 0 ? 'var(--green)' : 'var(--muted)';
+    const trendSign  = trend >= 0 ? '+' : '';
+    const supply = last.total_supply != null ? Number(last.total_supply) : null;
     document.getElementById('chart-stats').innerHTML =
       '<span>Median: <span class="chart-stat-val">' + (last.median_unit_price/10000).toFixed(2) + 'g</span></span>' +
       '<span>Min: <span class="chart-stat-val">' + (last.min_unit_price/10000).toFixed(2) + 'g</span></span>' +
-      '<span>Supply: <span class="chart-stat-val">' + (last.total_supply ?? '&#8212;') + '</span></span>' +
-      '<span style="color:#555">' + rows.length + ' data points</span>';
+      (supply != null ? '<span>Supply: <span class="chart-stat-val">' + supply + '</span></span>' : '') +
+      (rows.length > 1 ? '<span>Trend: <span style="color:' + trendColor + ';font-weight:600">' + trendSign + trendPct + '% over ' + (chartRange === '24h' ? '24h' : chartRange) + '</span></span>' : '');
+
+    // Weekly pattern section (always fetch, shown when data is meaningful)
+    loadWeeklyPattern(itemId);
   } catch(e) {
     document.getElementById('chart-title').textContent = itemName + ' \u2014 failed to load chart';
+  }
+}
+
+async function loadWeeklyPattern(itemId) {
+  try {
+    const data = await apiFetch('/api/prices/' + itemId + '/weekly');
+    const panel = document.getElementById('weekly-panel');
+    const barsEl = document.getElementById('weekly-bars');
+    const insightEl = document.getElementById('weekly-insight');
+
+    if (!data.rows || data.rows.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    panel.style.display = 'block';
+
+    // Always show all 7 days; fill missing days with null
+    const byDow = {};
+    data.rows.forEach(r => { byDow[r.day_of_week] = r; });
+
+    const prices = Array.from({length:7}, (_, i) => byDow[i] ? Number(byDow[i].avg_price) : null);
+    const validPrices = prices.filter(p => p != null);
+
+    if (!data.meaningful || validPrices.length < 3) {
+      // Show the bars but grey, with a "building data" note
+      barsEl.innerHTML = '';
+      insightEl.innerHTML = '<span class="weekly-insufficient">Building weekly pattern&hellip; needs ~2 weeks of data. Check back ' +
+        (data.rows.length < 4 ? 'in a few weeks.' : 'after more data accumulates.') + '</span>';
+      // Still render partial bars so the user can see what exists
+      const maxP = Math.max(...validPrices, 1);
+      for (let dow = 0; dow < 7; dow++) {
+        const p = prices[dow];
+        const h = p ? Math.round((p / maxP) * 52) + 4 : 4;
+        const isReset = dow === RESET_DOW;
+        barsEl.innerHTML += '<div class="weekly-day">' +
+          '<div class="weekly-bar-wrap"><div class="weekly-bar' + (isReset ? ' reset-day' : '') +
+          '" style="height:' + h + 'px;opacity:' + (p ? '0.5' : '0.2') + '"></div></div>' +
+          '<div class="weekly-day-label' + (isReset ? ' reset-day' : '') + '">' + DAY_NAMES[dow] + (isReset ? '\u2605' : '') + '</div>' +
+          '<div class="weekly-day-price">' + (p ? (p/10000).toFixed(1)+'g' : '&mdash;') + '</div>' +
+          '</div>';
+      }
+      return;
+    }
+
+    // Enough data — render full insight
+    const maxP = Math.max(...validPrices);
+    const minP = Math.min(...validPrices);
+    const cheapestDow = prices.indexOf(minP);
+    const priciesDow  = prices.indexOf(maxP);
+    const resetPrice  = prices[RESET_DOW];
+
+    barsEl.innerHTML = '';
+    for (let dow = 0; dow < 7; dow++) {
+      const p = prices[dow];
+      const h = p ? Math.round((p / maxP) * 52) + 4 : 4;
+      const isCheapest = p === minP;
+      const isPriciest = p === maxP;
+      const isReset    = dow === RESET_DOW;
+      const barClass   = isCheapest ? 'cheapest' : isPriciest ? 'priciest' : isReset ? 'reset-day' : '';
+      barsEl.innerHTML += '<div class="weekly-day">' +
+        '<div class="weekly-bar-wrap"><div class="weekly-bar ' + barClass + '" style="height:' + h + 'px"></div></div>' +
+        '<div class="weekly-day-label' + (isReset ? ' reset-day' : '') + '">' + DAY_NAMES[dow] + (isReset ? '\u2605' : '') + '</div>' +
+        '<div class="weekly-day-price">' + (p ? (p/10000).toFixed(1)+'g' : '&mdash;') + '</div>' +
+        '</div>';
+    }
+
+    // Insight text
+    const priceDiff = maxP - minP;
+    const diffPct   = Math.round((priceDiff / minP) * 100);
+    let insight = '<strong>' + DAY_NAMES[cheapestDow] + '</strong> is historically the cheapest day';
+    if (cheapestDow !== priciesDow) insight += ', <strong>' + DAY_NAMES[priciesDow] + '</strong> the most expensive';
+    insight += ' (' + diffPct + '% swing).';
+    if (resetPrice) {
+      const vsMin = Math.round(((resetPrice - minP) / minP) * 100);
+      if (vsMin > 5) insight += ' Raid reset day (Tue) runs <strong>' + vsMin + '% above</strong> the weekly low — stock up before reset.';
+      else if (vsMin < -5) insight += ' Prices are actually <strong>lower on reset day</strong> — good time to buy.';
+    }
+    insightEl.innerHTML = insight;
+  } catch(_) {
+    document.getElementById('weekly-panel').style.display = 'none';
   }
 }
 
@@ -981,6 +1243,7 @@ async function init() {
   await loadProfile();
   await loadWatchlist();
   loadDeals();
+  loadMotes();
   loadMovers();
   loadConsumables();
   loadCrafting();
@@ -989,6 +1252,7 @@ async function init() {
 // Auto-refresh every 60s
 setInterval(() => {
   loadDeals();
+  loadMotes();
   loadMovers();
   loadConsumables();
   loadCrafting(); // also refreshes Gather vs Craft and Action Feed (CRAFT signals)

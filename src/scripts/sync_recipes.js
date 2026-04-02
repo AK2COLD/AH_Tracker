@@ -145,6 +145,21 @@ async function main() {
         total += count;
     }
     console.log(`[sync_recipes] Total: ${total} recipes`);
+
+    // CraftLib stores the spell name in the `name` field for transmutes and
+    // some other recipes, which lands in output_name incorrectly. Fix any row
+    // where the items table has the actual item name for that output_item_id.
+    const fix = await pool.query(`
+        UPDATE recipe_catalog rc
+        SET output_name = i.name
+        FROM items i
+        WHERE rc.output_item_id = i.item_id
+          AND rc.output_name != i.name
+    `);
+    if (fix.rowCount > 0) {
+        console.log(`[sync_recipes] Fixed output_name for ${fix.rowCount} recipes from items table`);
+    }
+
     await pool.end();
 }
 

@@ -14,6 +14,7 @@ import cron from 'node-cron';
 import { createApp } from './api.js';
 import { pollAuctions } from './poller.js';
 import { startImporter } from './importer.js';
+import { startTsmImporter } from './tsm_importer.js';
 
 const PORT = process.env.PORT || 3000;
 const POLL_INTERVAL_SECONDS = parseInt(process.env.POLL_INTERVAL_SECONDS || '60', 10);
@@ -26,8 +27,11 @@ app.listen(PORT, () => {
     console.log(`[server] API base:  http://localhost:${PORT}/api`);
 });
 
-// Start the Auctionator SavedVariables importer (polls file for changes)
+// Start the character/recipe importer (AHTrackerExport addon SavedVariables)
 startImporter();
+
+// Start the TSM price importer (TradeSkillMaster AppData.lua)
+startTsmImporter();
 
 // Run the first poll immediately on startup so we don't wait 60s for data
 console.log('[poller] Running initial poll...');

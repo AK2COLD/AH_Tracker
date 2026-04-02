@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "import:tsm": "node src/scripts/import_tsm_once.js",
+    "import:recipes": "node src/scripts/sync_recipes.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

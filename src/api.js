@@ -146,29 +146,92 @@ export function createApp() {
     });
 
     // ----------------------------------------------------------------
-    // GET /api/prices/:item_id — last 24h of hourly price data
-    // Returns an array of { hour, min_unit_price, avg_unit_price, median_unit_price, total_supply }
-    // Prices are in copper — the frontend divides by 10000 for gold display
+    // GET /api/prices/:item_id?range=24h|7d|30d
+    // 24h → hourly buckets. 7d / 30d → daily aggregates.
+    // All prices in copper.
     // ----------------------------------------------------------------
     app.get('/api/prices/:item_id', async (req, res) => {
         const itemId = parseInt(req.params.item_id, 10);
+        if (isNaN(itemId)) return res.status(400).json({ error: 'Invalid item_id' });
 
-        if (isNaN(itemId)) {
-            return res.status(400).json({ error: 'Invalid item_id' });
-        }
+        const range = req.query.range || '24h';
 
         try {
-            const result = await pool.query(
-                `SELECT hour, min_unit_price, avg_unit_price, median_unit_price, total_supply
-                 FROM ah_price_hourly
-                 WHERE item_id = $1
-                   AND hour >= NOW() - INTERVAL '24 hours'
-                 ORDER BY hour ASC`,
-                [itemId]
-            );
+            let result;
+            if (range === '7d' || range === '30d') {
+                const interval = range === '7d' ? '7 days' : '30 days';
+                // Daily aggregates from the hourly materialized view
+                result = await pool.query(
+                    `SELECT
+                         DATE_TRUNC('day', hour)                         AS hour,
+                         MIN(min_unit_price)                             AS min_unit_price,
+                         AVG(median_unit_price)::BIGINT                  AS median_unit_price,
+                         SUM(total_supply)                               AS total_supply,
+                         EXTRACT(DOW FROM DATE_TRUNC('day', hour))::INT  AS day_of_week
+                     FROM ah_price_hourly
+                     WHERE item_id = $1
+                       AND hour >= NOW() - INTERVAL '${interval}'
+                     GROUP BY DATE_TRUNC('day', hour)
+                     ORDER BY hour ASC`,
+                    [itemId]
+                );
+            } else {
+                result = await pool.query(
+                    `SELECT hour, min_unit_price, median_unit_price, total_supply
+                     FROM ah_price_hourly
+                     WHERE item_id = $1
+                       AND hour >= NOW() - INTERVAL '24 hours'
+                     ORDER BY hour ASC`,
+                    [itemId]
+                );
+            }
             res.json(result.rows);
         } catch (err) {
             console.error('[api] GET /api/prices failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/prices/:item_id/weekly
+    // Average price by day of week (0=Sun … 6=Sat), across all history.
+    // Requires at least 2 weeks of data to be meaningful.
+    // Returns: [{ day_of_week, avg_price, min_price, max_price, weeks_of_data }]
+    // ----------------------------------------------------------------
+    app.get('/api/prices/:item_id/weekly', async (req, res) => {
+        const itemId = parseInt(req.params.item_id, 10);
+        if (isNaN(itemId)) return res.status(400).json({ error: 'Invalid item_id' });
+
+        try {
+            const result = await pool.query(
+                `WITH daily AS (
+                     SELECT
+                         DATE_TRUNC('day', hour)         AS day,
+                         EXTRACT(DOW FROM hour)::INT     AS dow,
+                         AVG(median_unit_price)::BIGINT  AS day_avg,
+                         MIN(min_unit_price)             AS day_min
+                     FROM ah_price_hourly
+                     WHERE item_id = $1
+                     GROUP BY DATE_TRUNC('day', hour), EXTRACT(DOW FROM hour)
+                 )
+                 SELECT
+                     dow                         AS day_of_week,
+                     COUNT(*)::INT               AS data_days,
+                     AVG(day_avg)::BIGINT         AS avg_price,
+                     MIN(day_min)                AS min_price,
+                     MAX(day_avg)                AS max_price
+                 FROM daily
+                 GROUP BY dow
+                 ORDER BY dow`,
+                [itemId]
+            );
+
+            // Minimum data threshold: at least 2 data days per day-of-week slot
+            // (roughly 2 weeks) before we consider the pattern meaningful
+            const minDays = result.rows.length > 0 ? Math.min(...result.rows.map(r => Number(r.data_days))) : 0;
+            res.json({ rows: result.rows, min_days: minDays, meaningful: minDays >= 2 });
+        } catch (err) {
+            console.error('[api] GET /api/prices/weekly failed:', err.message);
             res.status(500).json({ error: 'Database error' });
         }
     });
@@ -297,39 +360,101 @@ export function createApp() {
     // ----------------------------------------------------------------
     app.get('/api/dashboard/deals', async (_req, res) => {
         try {
+            // Compare recent median to 30-day moving average — far more stable than
+            // comparing raw snapshots which are thrown off by outlier listings.
             const result = await pool.query(`
-                WITH current_prices AS (
-                    SELECT item_id, MIN(buyout) AS min_buyout
-                    FROM   ah_snapshots
-                    WHERE  scanned_at > NOW() - INTERVAL '2 hours'
-                    GROUP  BY item_id
-                ),
-                historical AS (
+                WITH ma AS (
                     SELECT item_id,
-                           AVG(min_unit_price) AS avg_price,
-                           COUNT(*)            AS data_points
+                           AVG(median_unit_price)::BIGINT AS moving_avg
                     FROM   ah_price_hourly
-                    WHERE  hour > NOW() - INTERVAL '7 days'
+                    WHERE  hour >= NOW() - INTERVAL '30 days'
                     GROUP  BY item_id
-                    HAVING COUNT(*) >= 3
+                    HAVING COUNT(*) >= 10
+                ),
+                recent AS (
+                    SELECT item_id,
+                           AVG(median_unit_price)::BIGINT AS recent_price
+                    FROM   ah_price_hourly
+                    WHERE  hour >= NOW() - INTERVAL '24 hours'
+                    GROUP  BY item_id
+                    HAVING COUNT(*) >= 2
                 )
                 SELECT
-                    cp.item_id,
-                    COALESCE(i.name, 'Item #' || cp.item_id)   AS name,
-                    cp.min_buyout                               AS current_price,
-                    ROUND(h.avg_price)::BIGINT                  AS avg_price,
-                    ROUND((1.0 - cp.min_buyout / h.avg_price) * 100)::INT AS discount_pct
-                FROM   current_prices cp
-                JOIN   historical h ON h.item_id = cp.item_id
-                JOIN   items i ON i.item_id = cp.item_id   -- INNER JOIN: skip unnamed items
-                WHERE  cp.min_buyout < h.avg_price * 0.75
-                  AND  h.avg_price > 5000       -- ignore sub-50-silver junk
+                    r.item_id,
+                    i.name,
+                    r.recent_price                                            AS current_price,
+                    m.moving_avg,
+                    ROUND((1.0 - r.recent_price::float / m.moving_avg) * 100)::INT AS discount_pct
+                FROM   recent r
+                JOIN   ma m      ON m.item_id = r.item_id
+                JOIN   items i   ON i.item_id = r.item_id
+                WHERE  r.recent_price < m.moving_avg * 0.90   -- 10%+ below 30d MA
+                  AND  m.moving_avg > 5000                    -- skip sub-50s junk
                 ORDER  BY discount_pct DESC
                 LIMIT  15
             `);
             res.json(result.rows);
         } catch (err) {
             console.error('[api] GET /api/dashboard/deals failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/dashboard/motes
+    // Mote → Primal arbitrage: compare primal price to 10× mote price.
+    // Positive spread = buy 10 motes, combine, sell primal for profit.
+    // ----------------------------------------------------------------
+    const MOTE_PAIRS = [
+        { mote: 'Mote of Fire',   primal: 'Primal Fire'   },
+        { mote: 'Mote of Water',  primal: 'Primal Water'  },
+        { mote: 'Mote of Air',    primal: 'Primal Air'    },
+        { mote: 'Mote of Earth',  primal: 'Primal Earth'  },
+        { mote: 'Mote of Shadow', primal: 'Primal Shadow' },
+        { mote: 'Mote of Mana',   primal: 'Primal Mana'   },
+        { mote: 'Mote of Life',   primal: 'Primal Life'   },
+    ];
+
+    app.get('/api/dashboard/motes', async (_req, res) => {
+        try {
+            const allNames = MOTE_PAIRS.flatMap(p => [p.mote, p.primal]);
+            const result = await pool.query(
+                `SELECT DISTINCT ON (i.name)
+                     i.name, i.item_id,
+                     aph.median_unit_price AS price,
+                     aph.min_unit_price    AS min_price
+                 FROM items i
+                 JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                 WHERE i.name = ANY($1)
+                 ORDER BY i.name, aph.hour DESC`,
+                [allNames]
+            );
+
+            const priceMap = Object.fromEntries(result.rows.map(r => [r.name, r]));
+
+            const pairs = MOTE_PAIRS.map(p => {
+                const mote   = priceMap[p.mote];
+                const primal = priceMap[p.primal];
+                if (!mote || !primal) return null;
+                const mote_price   = Number(mote.price);
+                const primal_price = Number(primal.price);
+                const bundle_cost  = mote_price * 10;
+                const spread       = primal_price - bundle_cost;
+                const spread_pct   = primal_price > 0
+                    ? Math.round((spread / primal_price) * 100)
+                    : 0;
+                return {
+                    mote_name:   p.mote,  primal_name: p.primal,
+                    mote_id:     Number(mote.item_id),
+                    primal_id:   Number(primal.item_id),
+                    mote_price, primal_price, bundle_cost, spread, spread_pct,
+                };
+            }).filter(Boolean);
+
+            pairs.sort((a, b) => b.spread - a.spread);
+            res.json(pairs);
+        } catch (err) {
+            console.error('[api] GET /api/dashboard/motes failed:', err.message);
             res.status(500).json({ error: 'Database error' });
         }
     });
@@ -459,11 +584,15 @@ export function createApp() {
     // from base vendor price with a reputation discount applied.
     // ----------------------------------------------------------------
 
+    // TBC faction AH takes 5% of the final sale. Neutral goblin AH takes 15%.
+    // Profit must account for this — listing at 2g and selling nets only 1g 90s.
+    const AH_CUT = 0.05;
+
     // Base vendor costs in copper. Approximate TBC Classic prices.
     // Discounts are applied per WoW's standard reputation system.
     const VENDOR_BASE_COSTS = {
-        'Imbued Vial':  4000,   // ~40s — sold by Outland alchemy supply vendors
-        'Crystal Vial': 2000,   // ~20s — sold by alchemy supply vendors
+        'Imbued Vial':   800,   // 40s per 5 = 8s each — sold by Outland alchemy supply vendors
+        'Crystal Vial':  100,   // 5s per 5 = 1s each — sold by alchemy supply vendors
     };
     // standingId → discount fraction (discounts begin at Honored)
     const REP_DISCOUNTS = { 4: 0, 5: 0, 6: 0.05, 7: 0.10, 8: 0.20 };
@@ -524,41 +653,73 @@ export function createApp() {
 
             const myRecipes = catalogResult.rows.filter(r => {
                 const charRank = profRanks[r.profession] ?? 0;
-                if (r.min_skill > charRank) return false;
+                // Only filter by skill if we know the character's rank (from addon sync).
+                // When professions are set manually via Settings, ranks default to 0
+                // and we show all recipes rather than filtering everything out.
+                if (charRank > 0 && r.min_skill > charRank) return false;
                 if (hasKnownRecipes) return knownNames.has(r.recipe_name);
                 return true;
             });
 
             if (!myRecipes.length) return res.json({ items: [], needs_profile: false });
 
-            // Collect all unique item names we need prices for
-            const allNames = new Set();
-            for (const r of myRecipes) {
-                allNames.add(r.output_name);
-                r.materials.forEach(m => allNames.add(m.name));
-            }
+            // Collect output item IDs and material names separately.
+            // Output prices are looked up by item_id (immune to output_name data issues).
+            // Material prices are looked up by name (CraftLib reagent names are accurate).
+            const outputItemIds = [...new Set(myRecipes.map(r => r.output_item_id).filter(Boolean))];
+            const matNames      = [...new Set(myRecipes.flatMap(r => r.materials.map(m => m.name)))];
 
-            // Look up item_ids by name, then get 7-day avg price for each
-            const nameList = [...allNames];
-            const priceResult = await pool.query(
-                `SELECT i.name, i.item_id,
-                        AVG(aph.median_unit_price) AS avg_price,
-                        -- Most recent hourly price (not limited to 2 hours so stale scans still work)
-                        (SELECT aph2.median_unit_price
-                         FROM ah_price_hourly aph2
-                         WHERE aph2.item_id = i.item_id
-                         ORDER BY aph2.hour DESC LIMIT 1) AS current_price
-                 FROM items i
-                 JOIN ah_price_hourly aph ON aph.item_id = i.item_id
-                 WHERE i.name = ANY($1)
-                   AND aph.hour > NOW() - INTERVAL '7 days'
-                 GROUP BY i.name, i.item_id`,
-                [nameList]
+            const priceSubquery = (col) =>
+                `(SELECT aph2.median_unit_price FROM ah_price_hourly aph2
+                  WHERE aph2.item_id = ${col} ORDER BY aph2.hour DESC LIMIT 1)`;
+
+            const [outputPrices, matPrices] = await Promise.all([
+                outputItemIds.length ? pool.query(
+                    `SELECT i.item_id, i.name,
+                            AVG(aph.median_unit_price) AS avg_price,
+                            ${priceSubquery('i.item_id')} AS current_price,
+                            i.tsm_num_auctions, i.tsm_market_value,
+                            i.region_sold_per_day, i.region_sale_pct, i.region_market_value
+                     FROM items i
+                     JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                     WHERE i.item_id = ANY($1)
+                       AND aph.hour > NOW() - INTERVAL '7 days'
+                     GROUP BY i.item_id, i.name, i.tsm_num_auctions, i.tsm_market_value,
+                              i.region_sold_per_day, i.region_sale_pct, i.region_market_value`,
+                    [outputItemIds]
+                ) : { rows: [] },
+                matNames.length ? pool.query(
+                    `SELECT i.name, i.item_id,
+                            AVG(aph.median_unit_price) AS avg_price,
+                            ${priceSubquery('i.item_id')} AS current_price
+                     FROM items i
+                     JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                     WHERE i.name = ANY($1)
+                       AND aph.hour > NOW() - INTERVAL '7 days'
+                     GROUP BY i.name, i.item_id`,
+                    [matNames]
+                ) : { rows: [] },
+            ]);
+
+            // priceById: for output price lookups (keyed by item_id)
+            const priceById = Object.fromEntries(
+                outputPrices.rows.map(r => [r.item_id, {
+                    item_id:       r.item_id,
+                    name:          r.name,
+                    avg_price:     Number(r.avg_price),
+                    current_price: r.current_price != null ? Number(r.current_price) : null,
+                    market_context: {
+                        tsm_num_auctions:    r.tsm_num_auctions    != null ? Number(r.tsm_num_auctions)    : null,
+                        tsm_market_value:    r.tsm_market_value    != null ? Number(r.tsm_market_value)    : null,
+                        region_sold_per_day: r.region_sold_per_day != null ? Number(r.region_sold_per_day) : null,
+                        region_sale_pct:     r.region_sale_pct     != null ? Number(r.region_sale_pct)     : null,
+                        region_market_value: r.region_market_value != null ? Number(r.region_market_value) : null,
+                    },
+                }])
             );
-
-            // Build a name → { avg_price, current_price } map
+            // priceMap: for material price lookups (keyed by name)
             const priceMap = Object.fromEntries(
-                priceResult.rows.map(r => [r.name, {
+                matPrices.rows.map(r => [r.name, {
                     item_id:       r.item_id,
                     avg_price:     Number(r.avg_price),
                     current_price: r.current_price != null ? Number(r.current_price) : null,
@@ -568,7 +729,11 @@ export function createApp() {
             const VENDOR_ITEMS = new Set(Object.keys(VENDOR_BASE_COSTS));
 
             const results = myRecipes.map(recipe => {
-                const output = priceMap[recipe.output_name];
+                // Look up output price by item_id when available (robust against
+                // output_name mismatches like transmute spell names in CraftLib data).
+                const output = recipe.output_item_id
+                    ? priceById[recipe.output_item_id]
+                    : priceMap[recipe.output_name];
                 if (!output?.current_price) {
                     return { ...recipe, output_price: null, material_cost: null, profit: null, profit_pct: null };
                 }
@@ -596,32 +761,45 @@ export function createApp() {
 
                 const num_made        = recipe.num_made ?? 1;
                 const output_price    = output.current_price * num_made;
+                // Net proceeds after the AH cut — this is what actually lands in your bag
+                const net_proceeds    = Math.round(output_price * (1 - AH_CUT));
                 const profitKnown     = missing.length === 0;
-                const profit          = profitKnown ? output_price - material_cost : null;
+                const profit          = profitKnown ? net_proceeds - material_cost : null;
                 const profit_pct      = profitKnown && material_cost > 0
                     ? Math.round((profit / material_cost) * 100)
                     : null;
 
+                // Market context from TSM (liquidity signals, not prices)
+                const ctx = output.market_context ?? {};
+
                 return {
-                    profession:    recipe.profession,
-                    output_name:   recipe.output_name,
-                    output_id:     output.item_id,
+                    profession:          recipe.profession,
+                    output_name:         recipe.output_name,
+                    output_id:           output.item_id,
                     num_made,
                     output_price,
-                    material_cost: profitKnown ? Math.round(material_cost) : null,
+                    material_cost:       profitKnown ? Math.round(material_cost) : null,
                     profit,
                     profit_pct,
-                    missing_mats:  missing,
+                    missing_mats:        missing,
+                    // TSM market intelligence
+                    tsm_num_auctions:    ctx.tsm_num_auctions    ?? null,
+                    region_sold_per_day: ctx.region_sold_per_day ?? null,
+                    region_sale_pct:     ctx.region_sale_pct     ?? null,
+                    region_market_value: ctx.region_market_value ?? null,
+                    tsm_market_value:    ctx.tsm_market_value    ?? null,
                 };
             });
 
-            // Sort by profit descending, put unknowns at the end
-            results.sort((a, b) => {
-                if (a.profit === null && b.profit === null) return 0;
-                if (a.profit === null) return 1;
-                if (b.profit === null) return -1;
-                return b.profit - a.profit;
-            });
+            // Sort by expected gold/day = profit × region_sold_per_day.
+            // Items with no velocity data fall back to raw profit ranking.
+            // Unknowns (null profit) always go last.
+            const expectedGoldPerDay = (r) => {
+                if (r.profit == null) return -Infinity;
+                const vel = r.region_sold_per_day;
+                return vel != null ? r.profit * vel : r.profit * 0.5; // treat unknown vel as 0.5/day
+            };
+            results.sort((a, b) => expectedGoldPerDay(b) - expectedGoldPerDay(a));
 
             // ── Gather vs Craft ───────────────────────────────────────────
             // For each gatherable ingredient across all recipes, compare its
@@ -629,7 +807,9 @@ export function createApp() {
             // effective_value = (output_price - cost_of_other_mats) / qty_of_this_ingredient
             const ingredientValues = {};
             for (const recipe of myRecipes) {
-                const output = priceMap[recipe.output_name];
+                const output = recipe.output_item_id
+                    ? priceById[recipe.output_item_id]
+                    : priceMap[recipe.output_name];
                 if (!output?.current_price) continue;
                 const outputPrice = output.current_price * (recipe.num_made ?? 1);
 
