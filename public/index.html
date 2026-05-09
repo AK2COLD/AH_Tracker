@@ -3,27 +3,64 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AH Tracker — Dreamscythe</title>
+<title>Arcanum · AH Tracker — Dreamscythe</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0d0a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AH Tracker">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- Wowhead tooltips — shows item tooltips on hover for any wow-item-link -->
 <script>var whTooltips = {colorLinks: false, iconizeLinks: false, renameLinks: false, hide: {footer: true}};</script>
 <script src="https://wow.zamimg.com/widgets/power.js"></script>
 <style>
   :root {
-    --bg:        #0d1117;
-    --surface:   #161b22;
-    --surface2:  #1f2937;
-    --border:    #30363d;
-    --text:      #e6edf3;
-    --muted:     #8b949e;
-    --accent:    #f0a500;
-    --green:     #3fb950;
-    --red:       #f85149;
-    --blue:      #58a6ff;
-    --gold:      #f0a500;
+    /* Cosmic palette */
+    --bg-void: #0d0a1a;
+    --bg-deep: #0a0815;
+    --bg-card: #14102a;
+    --bg-card-2: #1a1538;
+    --bg-elevated: #211a45;
+    --bg-input: #0f0c22;
+    --border: #2a2150;
+    --border-strong: #3b2f6e;
+    --border-glow: rgba(79, 195, 247, 0.18);
+    --text: #e8e4f5;
+    --text-2: #b3acd0;
+    --text-3: #6f6892;
+    --text-dim: #4a4470;
+    --gold: #f4b942;
+    --gold-deep: #d99826;
+    --silver: #c8c8d8;
+    --copper: #c47148;
+    --arcane: #4fc3f7;
+    --arcane-deep: #2196d4;
+    --arcane-glow: rgba(79, 195, 247, 0.35);
+    --emerald: #34d399;
+    --emerald-deep: #10b981;
+    --ruby: #e26b6b;
+    --ruby-deep: #c14747;
+    --violet: #a78bfa;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --radius-sm: 4px;
+    --font: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+    /* Backward-compat aliases */
+    --bg:      var(--bg-void);
+    --surface: var(--bg-card);
+    --surface2: var(--bg-card-2);
+    --muted:   var(--text-3);
+    --accent:  var(--gold);
+    --green:   var(--emerald);
+    --red:     var(--ruby);
+    --blue:    var(--arcane);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+  body { background: var(--bg-void); color: var(--text); font-family: var(--font); font-size: 13px; line-height: 1.45; letter-spacing: 0.005em; -webkit-font-smoothing: antialiased; overflow: hidden; }
 
   /* ── Nav ── */
   .nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 8px; height: 52px; position: sticky; top: 0; z-index: 100; }
@@ -56,16 +93,16 @@
 
   /* ── Widget ── */
   .widget { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-  .widget-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .widget-header { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
   .widget-title { font-weight: 600; font-size: 14px; }
-  .widget-subtitle { color: var(--muted); font-size: 12px; margin-top: 2px; }
-  .widget-body { min-height: 180px; }
-  .widget-loading { display: flex; align-items: center; justify-content: center; height: 180px; color: var(--muted); font-size: 13px; }
-  .widget-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 180px; color: var(--muted); font-size: 13px; gap: 8px; }
+  .widget-subtitle { color: var(--muted); font-size: 11px; margin-top: 1px; }
+  .widget-body { min-height: 80px; }
+  .widget-loading { display: flex; align-items: center; justify-content: center; height: 120px; color: var(--muted); font-size: 13px; }
+  .widget-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px; color: var(--muted); font-size: 13px; gap: 8px; }
   .widget-empty .hint { font-size: 12px; color: #555; }
 
   /* ── Deals widget ── */
-  .deal-row { display: flex; align-items: center; padding: 7px 16px; border-bottom: 1px solid #1a1f26; gap: 10px; }
+  .deal-row { display: flex; align-items: center; padding: 5px 14px; border-bottom: 1px solid #1a1f26; gap: 8px; flex-wrap: wrap; }
   .deal-row:last-child { border-bottom: none; }
   .deal-row:hover { background: var(--surface2); }
   .deal-name { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -193,6 +230,47 @@
   a.wow-link { color: inherit; text-decoration: none; cursor: pointer; }
   a.wow-link:hover { text-decoration: underline; }
 
+  /* ── Alchemy Volume Strategy ── */
+  .alchemy-type-badge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+  .alchemy-type-badge.flask   { background: #0e2a4a; color: #79c0ff; border: 1px solid #1f6feb; }
+  .alchemy-type-badge.elixir  { background: #1a3020; color: #7ee787; border: 1px solid #3fb950; }
+  .alchemy-type-badge.potion  { background: #2d1a3a; color: #d2a8ff; border: 1px solid #8957e5; }
+  .alchemy-type-badge.transmute { background: #2a1a00; color: #f0a500; border: 1px solid #f0a500; }
+  .alchemy-type-badge.other   { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .spec-toggle { display: flex; gap: 3px; }
+  .spec-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 4px; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .spec-btn.active.elixir { background: #1f3048; color: #79c0ff; border-color: #1f6feb; }
+  .spec-btn.active.potion { background: #2a1a40; color: #d2a8ff; border-color: #8957e5; }
+  .spec-btn:hover:not(.active) { color: var(--text); border-color: #555; }
+  .ev-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+  .ev-margin { font-size: 11px; white-space: nowrap; }
+  .break-even-badge { font-size: 9px; font-weight: 700; background: rgba(63,185,80,.15); color: var(--green); border: 1px solid var(--green); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
+  .proc-badge { font-size: 9px; background: #2a1a00; color: #f0a500; border: 1px solid #f0a500; border-radius: 3px; padding: 1px 5px; white-space: nowrap; font-weight: 700; }
+  /* Capital Planner */
+  .planner-input-row { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  .planner-gold-input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 5px 9px; border-radius: 6px; font-size: 13px; width: 110px; outline: none; }
+  .planner-gold-input:focus { border-color: var(--accent); }
+  .planner-calc-btn { background: var(--accent); color: #000; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .planner-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .planner-table th { text-align: left; padding: 3px 10px; font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
+  .planner-table td { padding: 5px 10px; border-bottom: 1px solid #1a1f26; }
+  .planner-table tr.planner-total td { border-top: 1px solid var(--border); font-weight: 600; color: var(--text); background: var(--surface2); }
+  .rotation-section { padding: 12px 16px; border-top: 1px solid var(--border); }
+  .rotation-cols { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; margin-top: 10px; align-items: start; }
+  .rotation-col { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+  .rotation-col h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .rotation-col.elixir h4 { color: #79c0ff; }
+  .rotation-col.potion h4 { color: #d2a8ff; }
+  .rotation-divider { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; }
+  .rotation-verdict { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; text-align: center; }
+  .rotation-verdict.worth-it { background: rgba(63,185,80,.1); color: var(--green); border: 1px solid var(--green); }
+  .rotation-verdict.not-worth { background: rgba(248,81,73,.1); color: var(--red); border: 1px solid var(--red); }
+  /* Sales History */
+  .sales-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; padding: 7px 16px; border-bottom: 1px solid #1a1f26; font-size: 12px; }
+  .sales-row:last-child { border-bottom: none; }
+  .sales-row-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sales-revenue { color: var(--gold); font-weight: 600; white-space: nowrap; }
+  .sales-meta { color: var(--muted); font-size: 11px; white-space: nowrap; text-align: right; }
   /* ── Misc ── */
   .refresh-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
   .refresh-btn:hover { background: var(--border); color: var(--text); }
@@ -201,8 +279,8 @@
 
   /* ── Action Feed ── */
   .widget-full { margin-bottom: 16px; }
-  .action-cards { display: flex; gap: 10px; padding: 14px 16px; overflow-x: auto; flex-wrap: wrap; min-height: 64px; align-items: flex-start; }
-  .action-card { display: flex; flex-direction: column; gap: 3px; padding: 10px 14px; border-radius: 6px; border: 1px solid; min-width: 200px; max-width: 280px; flex-shrink: 0; }
+  .action-cards { display: flex; gap: 8px; padding: 10px 14px; overflow-x: auto; flex-wrap: wrap; min-height: 52px; align-items: flex-start; }
+  .action-card { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 6px; border: 1px solid; min-width: 180px; max-width: 260px; flex-shrink: 0; }
   .action-card.craft { background: #1a1500; border-color: #4a3800; }
   .action-card.sell  { background: #1a0f00; border-color: #5a2e00; }
   .action-card.buy   { background: #0d1f0d; border-color: #1e4a1e; }
@@ -227,18 +305,254 @@
   .cvs-badge { border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
   .cvs-badge.craft { background: #1a1500; color: var(--gold);   border: 1px solid #4a3800; }
   .cvs-badge.sell  { background: #3a1a1a; color: var(--red);    border: 1px solid #4a2a2a; }
+
+  /* === ARCANE THEME: Background Layers === */
+  .bg-field {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 1200px 600px at 70% -10%, rgba(79,195,247,.08), transparent 60%),
+      radial-gradient(ellipse 1000px 500px at 10% 110%, rgba(167,139,250,.07), transparent 60%),
+      radial-gradient(ellipse 600px 400px at 50% 50%, rgba(244,185,66,.025), transparent 70%);
+  }
+  .bg-stars {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.55;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.7), transparent 60%),
+      radial-gradient(1px 1px at 27% 73%, rgba(255,255,255,.5), transparent 60%),
+      radial-gradient(1px 1px at 41% 12%, rgba(255,255,255,.4), transparent 60%),
+      radial-gradient(1px 1px at 58% 41%, rgba(255,255,255,.6), transparent 60%),
+      radial-gradient(1px 1px at 71% 88%, rgba(255,255,255,.4), transparent 60%),
+      radial-gradient(1px 1px at 84% 22%, rgba(255,255,255,.55), transparent 60%),
+      radial-gradient(1px 1px at 92% 64%, rgba(255,255,255,.4), transparent 60%),
+      radial-gradient(1px 1px at 6% 51%, rgba(255,255,255,.45), transparent 60%),
+      radial-gradient(1px 1px at 35% 35%, rgba(79,195,247,.45), transparent 60%),
+      radial-gradient(1px 1px at 67% 14%, rgba(167,139,250,.5), transparent 60%),
+      radial-gradient(1px 1px at 19% 91%, rgba(244,185,66,.4), transparent 60%);
+    background-size: 700px 700px;
+  }
+  .bg-runes {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.06;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='480' viewBox='0 0 480 480'><g fill='none' stroke='%234fc3f7' stroke-width='0.6'><circle cx='90' cy='90' r='52'/><circle cx='90' cy='90' r='38'/><path d='M52 90 L128 90 M90 52 L90 128 M64 64 L116 116 M64 116 L116 64'/><circle cx='380' cy='130' r='34'/><path d='M380 96 L380 164 M346 130 L414 130'/><polygon points='380,108 392,130 380,152 368,130'/><circle cx='150' cy='340' r='44'/><circle cx='150' cy='340' r='28'/><path d='M122 340 L178 340 M150 312 L150 368'/><circle cx='400' cy='400' r='40'/><path d='M380 380 L420 420 M420 380 L380 420'/><circle cx='400' cy='400' r='10'/></g></svg>");
+    background-size: 480px 480px;
+  }
+  /* === App shell === */
+  .app {
+    position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh;
+    background: linear-gradient(180deg, rgba(13,10,26,0) 0%, rgba(13,10,26,.4) 100%);
+  }
+  .titlebar {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 32px; padding: 0 12px;
+    background: rgba(10,8,21,.85); border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .titlebar-left { display: flex; align-items: center; gap: 10px; }
+  .tb-icon { width: 16px; height: 16px; display: grid; place-items: center; color: var(--arcane); }
+  .tb-name { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); font-weight: 500; }
+  .tb-name strong { color: var(--text); font-weight: 600; }
+  .tb-server { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: rgba(20,16,42,.6); }
+  .tb-right { display: flex; gap: 14px; align-items: center; font-size: 11px; color: var(--text-3); }
+  .tb-right button { background: none; border: none; color: var(--text-3); cursor: pointer; font-size: 13px; padding: 2px 6px; border-radius: 4px; }
+  .tb-right button:hover { color: var(--text); background: rgba(255,255,255,.06); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 6px var(--emerald-deep); display: inline-block; vertical-align: middle; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.45; } }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+  /* === Main navigation tabs === */
+  .tabs {
+    display: flex; align-items: stretch; height: 36px;
+    background: rgba(10,8,21,.6); border-bottom: 1px solid var(--border);
+    flex-shrink: 0; padding: 0 12px; gap: 2px;
+  }
+  .tab {
+    display: flex; align-items: center; gap: 8px; padding: 0 16px;
+    font-size: 12px; color: var(--text-3); background: transparent; border: none; cursor: pointer;
+    position: relative; font-family: inherit; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; transition: color .12s;
+  }
+  .tab:hover { color: var(--text-2); }
+  .tab.active { color: var(--text); border-bottom-color: var(--arcane); }
+  .tab.active::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 0%, rgba(79,195,247,.06) 100%);
+    pointer-events: none;
+  }
+  /* === Main scroll area === */
+  .main { flex: 1; overflow-y: auto; }
+  .main::-webkit-scrollbar { width: 8px; }
+  .main::-webkit-scrollbar-track { background: transparent; }
+  .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 2px solid var(--bg-void); }
+  .main::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+  /* === Status bar === */
+  .statusbar {
+    height: 22px; background: rgba(10,8,21,.85); border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 12px; font-size: 10.5px; color: var(--text-3); font-family: var(--mono); flex-shrink: 0;
+  }
+  .statusbar .left, .statusbar .right { display: flex; gap: 14px; align-items: center; }
+  .statusbar .item { display: inline-flex; align-items: center; gap: 5px; }
+  /* === Item card grid (Crafting Profits, Transmutes) === */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 14px;
+    padding: 16px;
+  }
+  .card {
+    position: relative;
+    background: linear-gradient(180deg, rgba(79,195,247,.025) 0%, transparent 30%), var(--bg-card);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px;
+    overflow: hidden; transition: border-color .15s;
+  }
+  .card::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    border: 1px solid var(--border-glow); opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  .card:hover { border-color: var(--border-strong); }
+  .card:hover::before { opacity: 1; box-shadow: 0 0 18px rgba(79,195,247,.12) inset; }
+  .card.top::after {
+    content: ""; position: absolute; top: 0; left: 12px; right: 12px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent); opacity: .5;
+  }
+  .card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .card-icon {
+    width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+    position: relative; display: grid; place-items: center;
+    background: var(--bg-input); border: 1px solid var(--border); overflow: hidden;
+  }
+  .card-icon::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.15), transparent 60%);
+  }
+  .card-icon .liquid {
+    width: 22px; height: 28px; border-radius: 4px 4px 8px 8px; position: relative;
+    box-shadow: inset 0 -10px 12px rgba(0,0,0,.35), inset 0 6px 4px rgba(255,255,255,.18);
+  }
+  .card-icon .cap {
+    position: absolute; top: 6px; width: 14px; height: 5px;
+    background: linear-gradient(180deg, #6b5230, #3a2a18); border-radius: 2px; z-index: 2;
+  }
+  .card-icon.flask   .liquid { background: linear-gradient(180deg, #6ad7ff 0%, #2a82c4 100%); }
+  .card-icon.mana    .liquid { background: linear-gradient(180deg, #6a9bff 0%, #2a3fc4 100%); }
+  .card-icon.dest    .liquid { background: linear-gradient(180deg, #ff8a4a 0%, #c43a1f 100%); }
+  .card-icon.elixir  .liquid { background: linear-gradient(180deg, #b4f99a 0%, #2a8b3f 100%); }
+  .card-icon.protect .liquid { background: linear-gradient(180deg, #c98aff 0%, #6b3ac4 100%); }
+  .card-icon.heal    .liquid { background: linear-gradient(180deg, #ff9d9d 0%, #c4302a 100%); }
+  .card-title-block { flex: 1; min-width: 0; }
+  .card-title {
+    font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: -.005em;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;
+  }
+  .card-title a { color: var(--text); text-decoration: none; }
+  .card-title a:hover { color: var(--arcane); }
+  .card-sub { font-size: 11px; color: var(--text-3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+  .card-sub .sep { color: var(--text-dim); }
+  .tag {
+    display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px;
+    font-size: 10px; border-radius: 3px; font-weight: 500; letter-spacing: .02em;
+    background: var(--bg-elevated); color: var(--text-2); border: 1px solid var(--border);
+  }
+  .tag.flask     { color: var(--arcane);  border-color: rgba(79,195,247,.3);  background: rgba(79,195,247,.08); }
+  .tag.elixir    { color: var(--emerald); border-color: rgba(52,211,153,.3);  background: rgba(52,211,153,.08); }
+  .tag.potion    { color: var(--violet);  border-color: rgba(167,139,250,.3); background: rgba(167,139,250,.08); }
+  .tag.transmute { color: var(--gold);    border-color: rgba(244,185,66,.3);  background: rgba(244,185,66,.08); }
+  .card-margin-pill {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+    border-radius: 999px; font-family: var(--mono); font-size: 11px; font-weight: 600;
+    background: rgba(52,211,153,.1); color: var(--emerald); border: 1px solid rgba(52,211,153,.3);
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .card-margin-pill.neg  { background: rgba(226,107,107,.1); color: var(--ruby);   border-color: rgba(226,107,107,.3); }
+  .card-margin-pill.zero { background: rgba(111,104,146,.1); color: var(--text-3); border-color: rgba(111,104,146,.3); }
+  .price-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px;
+    background: var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 12px;
+  }
+  .price-cell { padding: 8px 10px; background: var(--bg-card-2); }
+  .price-cell .lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); margin-bottom: 3px; }
+  .price-cell .val { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
+  .price-cell .val.gold   { color: var(--gold); }
+  .price-cell .val.emerald { color: var(--emerald); }
+  .price-cell .val.ruby   { color: var(--ruby); }
+  .proc {
+    background: linear-gradient(135deg, rgba(167,139,250,.08), rgba(79,195,247,.04));
+    border: 1px solid rgba(167,139,250,.2); border-radius: var(--radius-sm);
+    padding: 9px 10px; margin-bottom: 12px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .proc-l { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .proc-glyph {
+    width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%;
+    background: radial-gradient(circle, rgba(167,139,250,.4), transparent 70%);
+    color: var(--violet); flex-shrink: 0; font-size: 13px;
+  }
+  .proc-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .proc-text .lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--violet); font-weight: 500; }
+  .proc-text .lbl .rate { color: var(--text-3); font-family: var(--mono); margin-left: 4px; }
+  .proc-text .desc { font-size: 11px; color: var(--text-2); }
+  .proc-r { text-align: right; flex-shrink: 0; }
+  .proc-r .ev { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--emerald); }
+  .proc-r .ev-lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
+  .rec {
+    display: grid; grid-template-columns: 1fr auto; gap: 10px;
+    align-items: center; padding-top: 10px; border-top: 1px dashed var(--border);
+  }
+  .rec-l .lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); margin-bottom: 4px; }
+  .rec-l .qty-row { display: flex; align-items: baseline; gap: 8px; }
+  .rec-l .qty { font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--arcane); }
+  .rec-l .qty-x { font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+  .rec-r { text-align: right; }
+  .rec-r .lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); margin-bottom: 4px; }
+  .rec-r .val { font-family: var(--mono); font-size: 16px; font-weight: 600; color: var(--gold); }
+  .mats { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+  .mat {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px 3px 5px;
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
+    font-size: 10.5px; color: var(--text-2);
+  }
+  .mat .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .mat .qty { font-family: var(--mono); color: var(--text-3); font-size: 10px; }
+  .card-chart-btn {
+    background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text-3); font-size: 10px; padding: 2px 7px; cursor: pointer;
+    font-family: var(--mono); transition: all .12s; white-space: nowrap;
+  }
+  .card-chart-btn:hover { border-color: var(--arcane); color: var(--arcane); }
+  .missing-note { font-size: 10px; color: var(--text-dim); margin-top: 4px; margin-bottom: 12px; }
 </style>
 </head>
 <body>
 
-<!-- NAV -->
-<nav class="nav">
-  <div class="nav-brand">AH Tracker <span>Dreamscythe</span></div>
-  <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
-  <button class="tab-btn"        onclick="switchTab('watchlist')">Watchlist</button>
-  <div class="nav-spacer"></div>
-  <button class="settings-btn" onclick="openSettings()">&#9881; Settings</button>
-</nav>
+<div class="bg-field"></div>
+<div class="bg-stars"></div>
+<div class="bg-runes"></div>
+
+<div class="app">
+
+<div class="titlebar">
+  <div class="titlebar-left">
+    <span class="tb-icon">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 3.5v9M3.5 8h9M5 5l6 6M11 5l-6 6"/></svg>
+    </span>
+    <span class="tb-name"><strong>Arcanum</strong> &middot; AH Tracker</span>
+    <span class="tb-server">Dreamscythe &middot; TBC</span>
+  </div>
+  <div class="tb-right">
+    <span><span class="dot pulse"></span> live</span>
+    <button onclick="openSettings()" title="Settings">&#9881;</button>
+  </div>
+</div>
+
+<div class="tabs" role="tablist">
+  <button class="tab active" id="tab-btn-dashboard" onclick="switchTab('dashboard')" role="tab">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h9M5 8h9M5 12h9"/><circle cx="2.5" cy="4" r=".5" fill="currentColor" stroke="none"/><circle cx="2.5" cy="8" r=".5" fill="currentColor" stroke="none"/><circle cx="2.5" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+    Dashboard
+  </button>
+  <button class="tab" id="tab-btn-watchlist" onclick="switchTab('watchlist')" role="tab">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12M3 11V8M6 11V5M9 11V7M12 11V3"/></svg>
+    Watchlist
+  </button>
+</div>
+
+<div class="main">
 
 <!-- DASHBOARD TAB -->
 <div id="tab-dashboard" class="tab-panel active">
@@ -261,94 +575,112 @@
             <div class="widget-title">Today&#8217;s Actions</div>
             <div class="widget-subtitle">What to do right now to maximise gold</div>
           </div>
-          <button class="refresh-btn" onclick="loadCrafting();loadWatchlist()">&#8635; Refresh</button>
+          <button class="refresh-btn" onclick="loadCrafting();watchlist.forEach(w=>fetchTickerStats(w.item_id))">&#8635; Refresh</button>
         </div>
         <div id="action-feed"><div class="action-cards"><div class="action-empty">Loading&hellip;</div></div></div>
       </div>
     </div>
 
-    <!-- Row 1: Crafting Profits + Gather vs Craft -->
-    <div class="widget-grid">
-
-      <!-- Crafting Profits -->
+    <!-- Crafting Profits (full width) -->
+    <div class="widget-full">
       <div class="widget">
         <div class="widget-header">
           <div>
             <div class="widget-title">Crafting Profits</div>
             <div class="widget-subtitle" id="crafting-subtitle">Recipes worth crafting right now</div>
           </div>
-          <button class="refresh-btn" onclick="loadCrafting()">&#8635; Refresh</button>
-        </div>
-        <div class="widget-body" id="crafting-body" style="max-height:480px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
-      </div>
-
-      <!-- Gather vs Craft -->
-      <div class="widget">
-        <div class="widget-header">
-          <div>
-            <div class="widget-title">Gather vs Craft</div>
-            <div class="widget-subtitle">Sell raw or use in a recipe?</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="spec-toggle" id="spec-toggle" style="display:none">
+              <button class="spec-btn" id="spec-btn-elixir" onclick="setAlchemySpec('Elixir Master')">Elixir</button>
+              <button class="spec-btn" id="spec-btn-potion" onclick="setAlchemySpec('Potion Master')">Potion</button>
+            </div>
+            <button class="refresh-btn" onclick="loadCrafting()">&#8635; Refresh</button>
           </div>
         </div>
-        <div class="widget-body" id="cvs-body" style="max-height:480px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
+        <div class="widget-body" id="crafting-body" style="max-height:520px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
-
     </div>
 
-    <!-- Row 2: Consumables + Market Deals -->
+    <!-- Row: Capital Planner + Flask Strategy -->
     <div class="widget-grid" style="margin-top:16px">
-
-      <!-- Consumables Planner -->
       <div class="widget">
         <div class="widget-header">
           <div>
-            <div class="widget-title">Consumables Planner</div>
-            <div class="widget-subtitle" id="consumables-subtitle">Raid consumables for your spec</div>
+            <div class="widget-title">Capital Planner</div>
+            <div class="widget-subtitle">Optimal craft allocation given available gold</div>
           </div>
-          <button class="refresh-btn" onclick="loadConsumables()">&#8635; Refresh</button>
         </div>
-        <div class="widget-body" id="consumables-body"><div class="widget-loading">Loading&hellip;</div></div>
+        <div class="planner-input-row">
+          <label style="font-size:12px;color:var(--muted)">Available gold:</label>
+          <input class="planner-gold-input" id="planner-gold" type="number" min="0" step="1" placeholder="e.g. 500">
+          <button class="planner-calc-btn" onclick="runCapitalPlanner()">Calculate</button>
+        </div>
+        <div id="planner-result"></div>
+        <div class="rotation-section" id="rotation-section" style="display:none">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Spec Rotation Analysis &mdash; 150g respec</div>
+          <div class="rotation-cols" id="rotation-cols"></div>
+          <div class="rotation-verdict" id="rotation-verdict"></div>
+        </div>
       </div>
 
-      <!-- Underpriced Items -->
       <div class="widget">
         <div class="widget-header">
           <div>
-            <div class="widget-title">Underpriced Items</div>
-            <div class="widget-subtitle">Trading 10%+ below 30-day moving average</div>
+            <div class="widget-title">Flask Strategy</div>
+            <div class="widget-subtitle">All flasks &mdash; proc EV, timing signals (Elixir Master: 1.35&times;)</div>
           </div>
-          <button class="refresh-btn" onclick="loadDeals()">&#8635; Refresh</button>
+          <button class="refresh-btn" onclick="loadFlaskWidget()">&#8635; Refresh</button>
         </div>
-        <div class="widget-body" id="deals-body"><div class="widget-loading">Loading&hellip;</div></div>
+        <div class="widget-body" id="flask-body" style="max-height:400px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
-
     </div>
 
-    <!-- Row 3: Mote / Primal Arbitrage (full width) -->
-    <div class="widget-full" style="margin-top:16px">
+    <!-- Row: Transmutes + Mote Arbitrage -->
+    <div class="widget-grid" style="margin-top:16px">
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Transmutes</div>
+            <div class="widget-subtitle">Daily cooldown &mdash; Transmutation Mastery only</div>
+          </div>
+        </div>
+        <div class="widget-body" id="transmutes-body" style="max-height:400px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
+
       <div class="widget">
         <div class="widget-header">
           <div>
             <div class="widget-title">Mote &#8596; Primal Arbitrage</div>
-            <div class="widget-subtitle">10 motes = 1 primal &mdash; positive spread means buy motes &amp; combine</div>
+            <div class="widget-subtitle">10 motes = 1 primal &mdash; buy motes when spread is positive</div>
           </div>
           <button class="refresh-btn" onclick="loadMotes()">&#8635; Refresh</button>
         </div>
-        <div class="widget-body" id="motes-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0"><div class="widget-loading">Loading&hellip;</div></div>
+        <div class="widget-body" id="motes-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
     </div>
 
-    <!-- Row 4: Price Movers (full width) -->
-    <div class="widget-full" style="margin-top:16px">
+    <!-- Row: Alchemy Price Watch + Sales History -->
+    <div class="widget-grid" style="margin-top:16px">
       <div class="widget">
         <div class="widget-header">
           <div>
-            <div class="widget-title">Price Movers</div>
-            <div class="widget-subtitle">Biggest 24h moves vs prior 7 days</div>
+            <div class="widget-title">Alchemy Price Watch</div>
+            <div class="widget-subtitle">Mats &amp; outputs vs 7-day MA &mdash; buy cheap, sell high</div>
           </div>
-          <button class="refresh-btn" onclick="loadMovers()">&#8635; Refresh</button>
+          <button class="refresh-btn" onclick="loadAlchemyMarket()">&#8635; Refresh</button>
         </div>
-        <div class="widget-body" id="movers-body"><div class="widget-loading">Loading&hellip;</div></div>
+        <div id="market-body" style="max-height:500px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
+
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Sales History</div>
+            <div class="widget-subtitle" id="sales-subtitle">Your recent AH sales from TSM (30d)</div>
+          </div>
+          <button class="refresh-btn" onclick="loadSalesHistory()">&#8635; Refresh</button>
+        </div>
+        <div id="sales-body" style="max-height:500px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
     </div>
 
@@ -370,6 +702,7 @@
           <button class="range-tab active" data-range="24h" onclick="setChartRange('24h')">24h</button>
           <button class="range-tab" data-range="7d"  onclick="setChartRange('7d')">7d</button>
           <button class="range-tab" data-range="30d" onclick="setChartRange('30d')">30d</button>
+          <button class="range-tab" data-range="wk"  onclick="setChartRange('wk')">Week</button>
         </div>
       </div>
       <div class="chart-stats" id="chart-stats" style="margin-bottom:12px"></div>
@@ -387,6 +720,20 @@
     </div>
   </div>
 </div>
+
+</div><!-- end .main -->
+
+<div class="statusbar">
+  <div class="left">
+    <span class="item"><span class="dot pulse" style="margin-right:3px"></span>tsm-stream</span>
+    <span class="item">cut 5%</span>
+  </div>
+  <div class="right">
+    <span class="item" id="sb-spec"></span>
+  </div>
+</div>
+
+</div><!-- end .app -->
 
 <!-- SETTINGS MODAL -->
 <div class="modal-overlay" id="settings-modal">
@@ -467,6 +814,9 @@ let watchlist     = [];
 let chartInstance = null;
 let selectedItem  = null;
 let searchTimer   = null;
+let craftingData  = null;   // last /api/dashboard/crafting response (for planner re-renders)
+let marketData    = null;   // last /api/dashboard/alchemy-market response (for timing cross-ref)
+let marketTbcOnly = true;   // Alchemy Price Watch: show only TBC items (min_skill >= 275) by default
 // Action feed: signals contributed by different loaders
 const actionSignals = { craft: [], sell: [] };
 
@@ -507,11 +857,10 @@ function wowLink(itemId, text) {
 // ── Tabs ───────────────────────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn, .tab').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  document.querySelectorAll('.tab-btn').forEach(b => {
-    if (b.textContent.trim().toLowerCase() === name) b.classList.add('active');
-  });
+  const tabBtn = document.getElementById('tab-btn-' + name);
+  if (tabBtn) tabBtn.classList.add('active');
   if (name === 'watchlist') renderWatchlist();
 }
 
@@ -678,132 +1027,632 @@ function renderActionFeed() {
 }
 
 // ── Crafting widget ────────────────────────────────────────────────────────
+
+function matSwatchColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return 'hsl(' + (h % 360) + ',55%,48%)';
+}
+
+function alchemyIconClass(type) {
+  if (type === 'flask')     return 'flask';
+  if (type === 'elixir')    return 'elixir';
+  if (type === 'potion')    return 'protect';
+  if (type === 'transmute') return 'dest';
+  return 'mana';
+}
+
+// Returns timing/opportunity badges for flasks by cross-referencing live market data.
+// Needs marketData to be populated (happens after loadAlchemyMarket() runs).
+function flaskTimingBadges(r) {
+  if (!marketData || !r.materials || r.alchemy_type !== 'flask') return '';
+  const matNames   = r.materials.map(m => m.name);
+  const matItems   = matNames.map(n => marketData.find(x => x.name === n && x.role === 'mat')).filter(Boolean);
+  const outputItem = marketData.find(x => x.item_id === r.output_id);
+
+  const matsCheap     = matItems.some(m => m.pct_vs_ma <= -7);
+  const matsExpensive = matItems.some(m => m.pct_vs_ma >= 10);
+  const pricePeak     = outputItem && outputItem.pct_vs_ma >= 7;
+  const priceWeak     = outputItem && outputItem.pct_vs_ma <= -7;
+
+  let badges = '';
+  if (matsCheap && pricePeak) {
+    badges += ' <span style="background:#0d2010;color:#56d364;border:1px solid #3fb950;border-radius:3px;font-size:9px;font-weight:700;padding:1px 5px;white-space:nowrap">&#9733; CRAFT WINDOW</span>';
+  } else if (matsCheap) {
+    badges += ' <span style="background:#0e2a4a;color:#79c0ff;border:1px solid #1f6feb;border-radius:3px;font-size:9px;font-weight:700;padding:1px 5px;white-space:nowrap">MATS CHEAP</span>';
+  } else if (pricePeak) {
+    badges += ' <span style="background:#2a1a00;color:#f0a500;border:1px solid #f0a500;border-radius:3px;font-size:9px;font-weight:700;padding:1px 5px;white-space:nowrap">PRICE PEAK</span>';
+  }
+  if (matsExpensive) {
+    badges += ' <span style="background:#3a1a1a;color:#f85149;border:1px solid #f85149;border-radius:3px;font-size:9px;font-weight:700;padding:1px 5px;white-space:nowrap">MATS PRICEY</span>';
+  }
+  if (priceWeak) {
+    badges += ' <span style="background:#1a1f26;color:#8b949e;border:1px solid #30363d;border-radius:3px;font-size:9px;font-weight:700;padding:1px 5px;white-space:nowrap">HOLD</span>';
+  }
+  return badges;
+}
+
+function craftingRow(r, isTransmute) {
+  const hasMissing  = r.missing_mats && r.missing_mats.length > 0;
+  const profitKnown = r.profit != null;
+  const profitPos   = profitKnown && r.profit >= 0;
+
+  const chartBtn = r.output_id
+    ? '<button class="card-chart-btn" onclick="openRecipeChart(' + r.output_id + ',\'' + escHtml(r.output_name).replace(/'/g, "\\'") + '\')" title="Price history">chart</button>'
+    : '';
+
+  // ── Alchemy card layout ──
+  if (r.alchemy_type) {
+    const iconClass    = alchemyIconClass(r.alchemy_type);
+    const timingBadges = flaskTimingBadges(r);
+    const cooldownNote = isTransmute
+      ? '<span style="font-size:10px;color:var(--gold);white-space:nowrap">1/day cd</span>' : '';
+
+    // Margin pill
+    const evMargin  = r.expected_margin ?? r.profit;
+    const pillPos   = evMargin != null && evMargin >= 0;
+    const pillClass = evMargin == null ? 'zero' : pillPos ? '' : 'neg';
+    const pctStr    = profitKnown && r.profit_pct != null
+      ? (r.profit >= 0 ? '+' : '') + r.profit_pct + '% ' : '';
+    const pillText  = evMargin != null
+      ? pctStr + formatCopper(Math.abs(evMargin)) + '/craft'
+      : 'no data';
+
+    // Gold/day
+    const goldPerDay = (r.alchemy_type === 'flask' || r.alchemy_type === 'elixir' || r.alchemy_type === 'potion') &&
+                       evMargin != null && r.daily_cap != null && evMargin > 0
+      ? Math.round(evMargin * r.daily_cap) : null;
+
+    // Liquidity sub-info
+    const liqInfo = r.region_sold_per_day != null
+      ? r.region_sold_per_day.toFixed(1) + '/day region' : '';
+
+    // Mats chips
+    const mats = r.materials
+      ? r.materials.map(m =>
+          '<span class="mat">' +
+          '<span class="swatch" style="background:' + matSwatchColor(m.name) + '"></span>' +
+          escHtml(m.name) +
+          (m.qty > 1 ? '<span class="qty">&times;' + m.qty + '</span>' : '') +
+          '</span>'
+        ).join('') : '';
+
+    // Price row
+    let priceRow;
+    if (profitKnown) {
+      priceRow = '<div class="price-row">' +
+        '<div class="price-cell"><div class="lbl">Mat cost</div><div class="val gold">' + copperToGold(r.material_cost) + '</div></div>' +
+        '<div class="price-cell"><div class="lbl">Sell (&minus;5%)</div><div class="val">' + copperToGold(r.output_price) + '</div></div>' +
+        '<div class="price-cell"><div class="lbl">Margin</div><div class="val ' + (profitPos ? 'emerald' : 'ruby') + '">' +
+        copperToGold(Math.abs(r.profit)) + (r.profit < 0 ? ' loss' : '') + '</div></div>' +
+        '</div>';
+    } else {
+      priceRow = hasMissing
+        ? '<div class="missing-note">Missing price data: ' + escHtml(r.missing_mats.join(', ')) + '</div>'
+        : '<div style="font-size:11px;color:var(--text-3);margin-bottom:12px">No price data yet</div>';
+    }
+
+    // Proc panel
+    const hasProc   = r.proc_yield > 1 && r.expected_margin != null;
+    const procPanel = hasProc
+      ? '<div class="proc">' +
+        '<div class="proc-l">' +
+        '<div class="proc-glyph">&#10022;</div>' +
+        '<div class="proc-text">' +
+        '<div class="lbl">Elixir Master proc<span class="rate">10% &middot; 3.5&times;</span></div>' +
+        '<div class="desc">EV: ' + copperToGold(r.expected_margin) + ' / craft &nbsp;&middot;&nbsp; worst: ' + copperToGold(r.profit) + '</div>' +
+        '</div></div>' +
+        '<div class="proc-r">' +
+        '<div class="ev">' + formatCopper(r.expected_margin) + '</div>' +
+        '<div class="ev-lbl">EV / craft</div>' +
+        '</div></div>'
+      : '';
+
+    // Rec row
+    const recQty = r.daily_cap != null ? Math.max(1, Math.round(r.daily_cap)) : null;
+    const recRow = goldPerDay != null && recQty != null
+      ? '<div class="rec">' +
+        '<div class="rec-l"><div class="lbl">Daily recommendation</div>' +
+        '<div class="qty-row"><div class="qty">' + recQty + '</div><div class="qty-x">crafts &mdash; cap ' + recQty + '/day</div></div>' +
+        '</div>' +
+        '<div class="rec-r"><div class="lbl">Gold / day</div><div class="val">' + formatCopper(goldPerDay) + '</div></div>' +
+        '</div>'
+      : '';
+
+    const isTop = goldPerDay != null && goldPerDay > 500000;
+
+    return '<div class="card' + (isTop ? ' top' : '') + '">' +
+      '<div class="card-head">' +
+      '<div class="card-icon ' + iconClass + '"><div class="cap"></div><div class="liquid"></div></div>' +
+      '<div class="card-title-block">' +
+      '<div class="card-title">' + wowLink(r.output_id, r.output_name) + cooldownNote + timingBadges + chartBtn + '</div>' +
+      '<div class="card-sub">' +
+      '<span class="tag ' + r.alchemy_type + '">' + r.alchemy_type + '</span>' +
+      (liqInfo ? '<span class="sep">&middot;</span><span>' + liqInfo + '</span>' : '') +
+      '</div>' +
+      '</div>' +
+      '<div class="card-margin-pill ' + pillClass + '">' + pillText + '</div>' +
+      '</div>' +
+      (mats ? '<div class="mats">' + mats + '</div>' : '') +
+      priceRow + procPanel + recRow +
+      '</div>';
+  }
+
+  // ── Non-alchemy: keep simple layout ──
+  const profitColor = profitPos ? 'var(--green)' : 'var(--red)';
+  const pctBadge    = profitKnown && r.profit_pct != null
+    ? '<span style="font-size:11px;color:' + profitColor + ';font-weight:700;white-space:nowrap">' + (r.profit >= 0 ? '+' : '') + r.profit_pct + '%</span>' : '';
+  const matsLabel   = profitKnown
+    ? 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: ' + copperToGold(r.material_cost)
+    : 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: <span style="color:#555">incomplete</span>';
+  const profitLabel = profitKnown
+    ? '<span style="font-size:12px;color:' + profitColor + ';white-space:nowrap">' + copperToGold(Math.abs(r.profit)) + (r.profit >= 0 ? ' profit' : ' loss') + '</span>'
+    : '<span style="font-size:12px;color:#555;white-space:nowrap">profit unknown</span>';
+  const missingNote = hasMissing
+    ? '<div style="font-size:10px;color:#555;margin-top:2px">Missing price: ' + escHtml(r.missing_mats.join(', ')) + '</div>' : '';
+  return '<div class="deal-row" style="flex-direction:column;align-items:flex-start;gap:3px;padding:8px 16px">' +
+    '<div style="display:flex;align-items:center;width:100%;gap:8px">' +
+    '<span style="flex:1;font-size:13px;font-weight:500">' + wowLink(r.output_id, r.output_name) + '</span>' +
+    chartBtn + profitLabel + pctBadge + '</div>' +
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+    '<span style="font-size:11px;color:var(--muted)">' + matsLabel + '</span></div>' +
+    missingNote + '</div>';
+}
+
+// ── Flask Strategy widget ──────────────────────────────────────────────────
+// Fetches ALL flask recipes from the server (no known_recipes filter),
+// so flasks show up even if the character hasn't learned them in-game yet.
+let flaskData = null;
+
+async function loadFlaskWidget() {
+  const body = document.getElementById('flask-body');
+  if (!body) return;
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  try {
+    const data = await apiFetch('/api/dashboard/flask-strategy');
+    flaskData = data;
+    renderFlaskWidget();
+  } catch(e) {
+    body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+function renderFlaskWidget() {
+  const body = document.getElementById('flask-body');
+  if (!body || !flaskData) return;
+
+  const alchemySpec    = flaskData.alchemy_spec || 'Elixir Master';
+  const isElixirMaster = alchemySpec === 'Elixir Master';
+  const flasks         = flaskData.items || [];
+
+  if (!flasks.length) {
+    body.innerHTML = '<div class="widget-empty"><div>No flask recipes found</div><div class="hint">Flask recipes require 300 Alchemy</div></div>';
+    return;
+  }
+
+  let html = '';
+  for (const r of flasks) {
+    const hasPrice  = r.output_price != null && r.material_cost != null;
+    const margin    = r.expected_margin ?? r.profit;
+    const marginPos = margin != null && margin >= 0;
+    const mClr      = !hasPrice ? 'var(--muted)' : marginPos ? 'var(--green)' : 'var(--red)';
+    const goldDay   = margin != null ? margin * (r.region_sold_per_day ?? 0.5) : null;
+
+    const procBadge = isElixirMaster && (r.proc_yield || 1) > 1
+      ? ' <span style="background:#2a1a00;color:#f0a500;border:1px solid #f0a500;border-radius:3px;font-size:9px;font-weight:700;padding:1px 5px;white-space:nowrap">1.35&times; PROC</span>'
+      : '';
+
+    const velBadge = r.region_sold_per_day != null
+      ? ' <span style="font-size:10px;color:var(--muted);white-space:nowrap">' + r.region_sold_per_day.toFixed(1) + '/day</span>'
+      : '';
+
+    html += '<div class="deal-row">' +
+      '<div class="deal-name">' + wowLink(r.output_id, r.output_name) + '</div>' +
+      (hasPrice
+        ? '<div class="deal-prices">Sell: ' + copperToGold(r.output_price) + ' &nbsp;|&nbsp; Mats: ' + copperToGold(r.material_cost) + '</div>'
+        : '<div class="deal-prices" style="color:#555">No price data yet</div>') +
+      (margin != null
+        ? '<span style="font-size:12px;color:' + mClr + ';font-weight:600;white-space:nowrap">' +
+          (marginPos ? '+' : '&minus;') + formatCopper(Math.abs(margin)) + '/craft</span>'
+        : '') +
+      (goldDay != null
+        ? '<span style="font-size:10px;color:var(--muted);white-space:nowrap">~' +
+          (goldDay < 0 ? '&minus;' : '') + formatCopper(Math.abs(goldDay)) + '/day</span>'
+        : '') +
+      procBadge +
+      velBadge +
+      flaskTimingBadges(r) +
+      '</div>';
+  }
+
+  body.innerHTML = html;
+}
+
 async function loadCrafting() {
-  const body    = document.getElementById('crafting-body');
-  const cvsBody = document.getElementById('cvs-body');
-  body.innerHTML    = '<div class="widget-loading">Loading&hellip;</div>';
-  cvsBody.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  const body = document.getElementById('crafting-body');
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
   try {
     const data = await apiFetch('/api/dashboard/crafting');
+    craftingData = data;
+
     if (data.needs_profile) {
-      const msg = '<div class="widget-empty"><div>No professions set</div><div class="hint"><a style="color:var(--accent);cursor:pointer" onclick="openSettings()">Add professions in Settings</a></div></div>';
-      body.innerHTML = cvsBody.innerHTML = msg;
-      return;
-    }
-    if (!data.items || !data.items.length) {
-      body.innerHTML    = '<div class="widget-empty"><div>No supported recipes</div><div class="hint">Add professions in Settings to see crafting profits</div></div>';
-      cvsBody.innerHTML = '<div class="widget-empty"><div>No recipe data</div></div>';
+      body.innerHTML = '<div class="widget-empty"><div>No professions set</div><div class="hint"><a style="color:var(--accent);cursor:pointer" onclick="openSettings()">Add professions in Settings</a></div></div>';
       return;
     }
 
-    // ── Crafting Profits ──
-    // Separate transmutes (cooldown-gated) from regular crafts (volume-based)
-    const withPrice    = data.items.filter(r => r.output_price != null);
-    const transmutes   = withPrice.filter(r => r.output_name && r.output_name.match(/transmute/i) ||
-                                               (r.recipe_name && r.recipe_name.match(/transmute/i)));
-    // Exclude transmutes from main list; filter low-liquidity traps (< 15% sell rate)
-    const craftRows    = withPrice
+    // Show/hide spec toggle if Alchemy is in profile
+    const profs      = profile && Array.isArray(profile.professions) ? profile.professions
+                     : profile ? JSON.parse(profile.professions || '[]') : [];
+    const hasAlchemy = profs.includes('Alchemy');
+    const specToggle = document.getElementById('spec-toggle');
+    specToggle.style.display = hasAlchemy ? 'flex' : 'none';
+
+    // Reflect current spec in toggle buttons
+    const alchemySpec = data.alchemy_spec || 'Elixir Master';
+    document.getElementById('spec-btn-elixir').className =
+      'spec-btn' + (alchemySpec === 'Elixir Master' ? ' active elixir' : '');
+    document.getElementById('spec-btn-potion').className =
+      'spec-btn' + (alchemySpec === 'Potion Master' ? ' active potion' : '');
+
+    if (!data.items || !data.items.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No supported recipes</div><div class="hint">Add professions in Settings to see crafting profits</div></div>';
+      document.getElementById('transmutes-body').innerHTML = '<div class="widget-empty"><div>No recipe data</div></div>';
+      return;
+    }
+
+    // ── Separate transmutes, volume crafts, low-liq, unknowns ──
+    const withPrice  = data.items.filter(r => r.output_price != null);
+    const transmutes = withPrice.filter(r => r.alchemy_type === 'transmute' ||
+                       (r.recipe_name && r.recipe_name.match(/transmute/i)) ||
+                       (r.output_name && r.output_name.match(/transmute/i)));
+    const craftRows  = withPrice
       .filter(r => !transmutes.includes(r))
       .filter(r => r.region_sale_pct == null || r.region_sale_pct >= 0.15)
       .slice(0, 20);
-    const lowLiq       = withPrice
+    const lowLiq     = withPrice
       .filter(r => !transmutes.includes(r) && r.region_sale_pct != null && r.region_sale_pct < 0.15);
-    const unknowns     = data.items.filter(r => r.output_price == null);
+    const unknowns   = data.items.filter(r => r.output_price == null);
 
-    function craftingRow(r, isTransmute) {
-      const hasMissing  = r.missing_mats && r.missing_mats.length > 0;
-      const profitKnown = r.profit != null;
-      const profitPos   = profitKnown && r.profit >= 0;
-      const profitColor = profitPos ? 'var(--green)' : 'var(--red)';
-      const profitLabel = profitKnown
-        ? '<span style="font-size:12px;color:' + profitColor + ';white-space:nowrap">' + copperToGold(Math.abs(r.profit)) + (r.profit >= 0 ? ' profit' : ' loss') + '</span>'
-        : '<span style="font-size:12px;color:#555;white-space:nowrap">profit unknown</span>';
-      const pctBadge = profitKnown && r.profit_pct != null
-        ? '<span style="font-size:11px;color:' + profitColor + ';font-weight:700;white-space:nowrap">' + (r.profit >= 0 ? '+' : '') + r.profit_pct + '%</span>'
-        : '';
-      const matsLabel = profitKnown
-        ? 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: ' + copperToGold(r.material_cost)
-        : 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: <span style="color:#555">incomplete</span>';
-
-      // Liquidity badge from TSM regional data
-      let liqBadge = '';
-      if (r.region_sold_per_day != null || r.region_sale_pct != null) {
-        const spd     = r.region_sold_per_day != null ? r.region_sold_per_day.toFixed(1) + '/day' : '';
-        const pct     = r.region_sale_pct     != null ? Math.round(r.region_sale_pct * 100) + '%'  : '';
-        const liqVal  = r.region_sale_pct ?? 1;
-        const liqClr  = liqVal >= 0.6 ? 'var(--green)' : liqVal >= 0.3 ? '#8b949e' : 'var(--red)';
-        liqBadge = '<span style="font-size:10px;color:' + liqClr + ';white-space:nowrap">' +
-          [spd, pct].filter(Boolean).join(' · ') + '</span>';
-      }
-
-      // tsm_num_auctions is regional cloud data (not your server) — not displayed
-
-      const missingNote = hasMissing
-        ? '<div style="font-size:10px;color:#555;margin-top:2px">Missing price: ' + escHtml(r.missing_mats.join(', ')) + '</div>'
-        : '';
-      const cooldownNote = isTransmute
-        ? '<span style="font-size:10px;color:var(--accent);margin-left:4px">20h CD</span>' : '';
-
-      return '<div class="deal-row" style="flex-direction:column;align-items:flex-start;gap:3px;padding:8px 16px">' +
-        '<div style="display:flex;align-items:center;width:100%;gap:8px">' +
-        '<span style="flex:1;font-size:13px;font-weight:500">' + wowLink(r.output_id, r.output_name) + cooldownNote + '</span>' +
-        profitLabel + pctBadge + '</div>' +
-        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
-        '<span style="font-size:11px;color:var(--muted)">' + matsLabel + '</span>' +
-        liqBadge + '</div>' +
-        missingNote + '</div>';
+    // ── Transmutes widget ──
+    const tBody = document.getElementById('transmutes-body');
+    if (transmutes.length) {
+      tBody.innerHTML = '<div class="cards">' + transmutes.map(r => craftingRow(r, true)).join('') + '</div>';
+    } else {
+      tBody.innerHTML = '<div class="widget-empty"><div>No transmute price data</div><div class="hint">Prices appear after an Auctionator scan imports Earthstorm/Skyfire Diamond, Primal Might, etc.</div></div>';
     }
 
-    if (!craftRows.length && !transmutes.length) {
+    // ── Crafting Profits widget (volume crafts only) ──
+    if (!craftRows.length) {
       body.innerHTML = '<div class="widget-empty"><div>No price data yet</div><div class="hint">Prices appear after an Auctionator scan is imported</div></div>';
     } else {
-      let html = '';
-      if (transmutes.length) {
-        html += '<div style="padding:6px 16px 2px;font-size:10px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Transmutes (cooldown)</div>';
-        html += transmutes.map(r => craftingRow(r, true)).join('');
-        if (craftRows.length) html += '<div style="padding:4px 16px 2px;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #1a1f26;margin-top:4px">Volume crafts · sorted by gold/day</div>';
-      }
-      html += craftRows.map(r => craftingRow(r, false)).join('');
-      if (lowLiq.length) html += '<div style="padding:5px 16px;font-size:11px;color:#555">' + lowLiq.length + ' low-liquidity recipe(s) hidden (&lt;15% sell rate)</div>';
-      if (unknowns.length) html += '<div style="padding:4px 16px;font-size:11px;color:#555">' + unknowns.length + ' recipe(s) missing price data</div>';
+      let html = '<div class="cards">' + craftRows.map(r => craftingRow(r, false)).join('') + '</div>';
+      if (lowLiq.length)   html += '<div style="padding:5px 16px;font-size:11px;color:var(--text-3)">' + lowLiq.length + ' low-liquidity recipe(s) hidden (&lt;15% sell rate)</div>';
+      if (unknowns.length) html += '<div style="padding:4px 16px;font-size:11px;color:var(--text-3)">' + unknowns.length + ' recipe(s) missing price data</div>';
       body.innerHTML = html;
     }
 
-    // ── Gather vs Craft ──
-    if (!data.craft_vs_sell || !data.craft_vs_sell.length) {
-      cvsBody.innerHTML = '<div class="widget-empty"><div>Not enough price data</div><div class="hint">Needs AH prices for your recipe ingredients</div></div>';
-    } else {
-      cvsBody.innerHTML = data.craft_vs_sell.map(d => {
-        const badgeCls = d.action === 'CRAFT' ? 'craft' : 'sell';
-        const sign     = d.gap_pct >= 0 ? '+' : '';
-        return '<div class="cvs-row">' +
-          '<div class="cvs-name">' + escHtml(d.name) + '</div>' +
-          '<div class="cvs-prices">Raw ' + copperToGold(d.raw_price) + '<br>Craft ' + copperToGold(d.craft_value) + ' <span style="color:#555">via ' + escHtml(d.best_recipe) + '</span></div>' +
-          '<div class="cvs-badge ' + badgeCls + '">' + d.action + ' ' + sign + d.gap_pct + '%</div>' +
-          '</div>';
-      }).join('');
-    }
-
-    // ── Contribute CRAFT signals to action feed ──
-    // Only surface actionable items: profitable AND liquid enough to actually sell
+    // ── CRAFT signals for action feed ──
     actionSignals.craft = withPrice
       .filter(r => r.profit != null && r.profit_pct != null && r.profit_pct >= 15)
       .filter(r => r.region_sale_pct == null || r.region_sale_pct >= 0.30)
       .slice(0, 5)
       .map(r => ({
-        type:     'CRAFT',
-        item_id:  r.output_id,
+        type:      'CRAFT',
+        item_id:   r.output_id,
         item_name: r.output_name,
-        headline: (r.profit_pct >= 0 ? '+' : '') + r.profit_pct + '% margin',
-        subline:  copperToGold(r.profit).replace(/<[^>]+>/g,'') + ' profit' +
-                  (r.region_sold_per_day != null ? ' · ' + r.region_sold_per_day.toFixed(1) + '/day regionally' : ''),
-        absValue: Math.abs(r.profit),
+        headline:  (r.profit_pct >= 0 ? '+' : '') + r.profit_pct + '% margin',
+        subline:   copperToGold(r.profit).replace(/<[^>]+>/g, '') + ' profit' +
+                   (r.region_sold_per_day != null ? ' · ' + r.region_sold_per_day.toFixed(1) + '/day regionally' : ''),
+        absValue:  Math.abs(r.profit),
       }));
     renderActionFeed();
 
   } catch(e) {
-    body.innerHTML    = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
-    cvsBody.innerHTML = '<div class="widget-empty"><div>Failed to load</div></div>';
+    body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+// ── Alchemy Price Watch ────────────────────────────────────────────────────
+async function loadAlchemyMarket(tbcOnly) {
+  if (tbcOnly !== undefined) marketTbcOnly = tbcOnly;
+  const body = document.getElementById('market-body');
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  try {
+    const url   = '/api/dashboard/alchemy-market' + (marketTbcOnly ? '?tbc=1' : '');
+    const items = await apiFetch(url);
+    marketData = items;
+    if (!items.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No data yet</div><div class="hint">Need 2+ days of Auctionator scans for alchemy items</div></div>';
+      return;
+    }
+
+    // Bucket into actionable groups (threshold: ±7%)
+    const THRESHOLD = 7;
+    const buyMats     = items.filter(r => r.role === 'mat'    && r.pct_vs_ma <= -THRESHOLD);
+    const sellOutputs = items.filter(r => r.role === 'output' && r.pct_vs_ma >=  THRESHOLD);
+    const priceyMats  = items.filter(r => r.role === 'mat'    && r.pct_vs_ma >=  THRESHOLD);
+    const softOutputs = items.filter(r => r.role === 'output' && r.pct_vs_ma <= -THRESHOLD);
+
+    function marketRow(r, signal) {
+      const isPos   = r.pct_vs_ma >= 0;
+      const sign    = isPos ? '+' : '';
+      const pctClr  = signal === 'buy' || signal === 'sell' ? 'var(--green)' :
+                      signal === 'warn' ? 'var(--red)' : 'var(--muted)';
+      const sigBadge = signal === 'buy'  ? '<span class="signal signal-buy">BUY MATS</span>' :
+                       signal === 'sell' ? '<span style="background:#1a1500;color:var(--gold);border:1px solid var(--accent);border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;white-space:nowrap">SELL NOW</span>' :
+                       signal === 'warn' ? '<span class="signal signal-high">PRICEY</span>' :
+                       '<span class="signal signal-normal">SOFT</span>';
+      return '<div class="deal-row">' +
+        '<div class="deal-name">' + wowLink(r.item_id, r.name) + '</div>' +
+        '<div class="deal-prices">' + copperToGold(r.current_price) + ' <span style="color:#555">7d MA ' + copperToGold(r.ma_7d) + '</span></div>' +
+        '<span style="font-size:11px;color:' + pctClr + ';font-weight:700;white-space:nowrap">' + sign + r.pct_vs_ma + '%</span>' +
+        sigBadge + '</div>';
+    }
+
+    let html = '';
+
+    if (buyMats.length) {
+      html += '<div style="padding:6px 16px 2px;font-size:10px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.5px">&#8595; Cheap Mats &mdash; Good time to stock up</div>';
+      html += buyMats.map(r => marketRow(r, 'buy')).join('');
+    }
+    if (sellOutputs.length) {
+      html += '<div style="padding:6px 16px 2px;font-size:10px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.5px' + (buyMats.length ? ';border-top:1px solid #1a1f26;margin-top:4px' : '') + '">&#8593; Elevated Outputs &mdash; Post your stock now</div>';
+      html += sellOutputs.map(r => marketRow(r, 'sell')).join('');
+    }
+    if (priceyMats.length) {
+      html += '<div style="padding:6px 16px 2px;font-size:10px;color:var(--red);font-weight:700;text-transform:uppercase;letter-spacing:.5px' + (buyMats.length || sellOutputs.length ? ';border-top:1px solid #1a1f26;margin-top:4px' : '') + '">&#8593; Expensive Mats &mdash; Margins may be tight</div>';
+      html += priceyMats.map(r => marketRow(r, 'warn')).join('');
+    }
+    if (softOutputs.length) {
+      html += '<div style="padding:6px 16px 2px;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px' + ((buyMats.length || sellOutputs.length || priceyMats.length) ? ';border-top:1px solid #1a1f26;margin-top:4px' : '') + '">&#8595; Soft Outputs &mdash; Consider holding</div>';
+      html += softOutputs.map(r => marketRow(r, 'soft')).join('');
+    }
+
+    const flat = items.filter(r => Math.abs(r.pct_vs_ma) < THRESHOLD);
+    if (!buyMats.length && !sellOutputs.length && !priceyMats.length && !softOutputs.length) {
+      html = '<div class="widget-empty"><div>Market is flat</div><div class="hint">All alchemy items within ' + THRESHOLD + '% of their 7-day average</div></div>';
+    } else if (flat.length) {
+      html += '<div style="padding:4px 16px 6px;font-size:11px;color:#555">' + flat.length + ' item(s) within ' + THRESHOLD + '% of MA (flat)</div>';
+    }
+
+    const tbcToggle = marketTbcOnly
+      ? '<div style="padding:5px 16px 7px;font-size:11px;border-top:1px solid #1a1f26;display:flex;align-items:center;gap:8px">' +
+        '<span style="color:#555">Showing TBC items only (min skill 275+)</span>' +
+        '<button onclick="loadAlchemyMarket(false)" style="background:none;border:none;color:var(--blue);font-size:11px;cursor:pointer;padding:0;text-decoration:underline">Show all items ↓</button>' +
+        '</div>'
+      : '<div style="padding:5px 16px 7px;font-size:11px;border-top:1px solid #1a1f26;display:flex;align-items:center;gap:8px">' +
+        '<button onclick="loadAlchemyMarket(true)" style="background:none;border:none;color:var(--blue);font-size:11px;cursor:pointer;padding:0;text-decoration:underline">↑ Show TBC items only</button>' +
+        '</div>';
+
+    body.innerHTML = html + tbcToggle;
+    renderFlaskWidget(); // re-render flask timing badges now that marketData is updated
+  } catch(e) {
+    body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+// ── Alchemy spec toggle ────────────────────────────────────────────────────
+async function setAlchemySpec(spec) {
+  try {
+    await apiFetch('/api/profile/alchemy-spec', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ alchemy_spec: spec }),
+    });
+    if (profile) profile.alchemy_spec = spec;
+    loadCrafting();
+    loadFlaskWidget();
+  } catch(e) { console.error('spec change failed', e); }
+}
+
+// ── Capital Planner ────────────────────────────────────────────────────────
+function runCapitalPlanner() {
+  const goldInput = parseFloat(document.getElementById('planner-gold').value);
+  const resultEl  = document.getElementById('planner-result');
+
+  if (!goldInput || goldInput <= 0) {
+    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">Enter your available gold above.</div>';
+    return;
+  }
+  if (!craftingData || !craftingData.items) {
+    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">Load crafting data first (reload the page).</div>';
+    return;
+  }
+
+  const goldCu     = Math.round(goldInput * 10000);
+  const alchemySpec = craftingData.alchemy_spec || 'Elixir Master';
+
+  // Only volume alchemy items (exclude transmutes — they're cooldown-gated, handled separately)
+  const candidates = craftingData.items
+    .filter(r => r.alchemy_type && r.alchemy_type !== 'transmute' && r.expected_margin != null && r.expected_margin > 0 && r.material_cost > 0)
+    .sort((a, b) => (b.expected_margin / b.material_cost) - (a.expected_margin / a.material_cost));
+
+  if (!candidates.length) {
+    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">No profitable alchemy recipes with full price data right now.</div>';
+    return;
+  }
+
+  let remaining = goldCu;
+  const plan = [];
+
+  for (const r of candidates) {
+    if (remaining < r.material_cost) continue;
+    const maxCrafts  = r.daily_cap != null ? Math.max(1, Math.round(r.daily_cap)) : 5;
+    const affordable = Math.floor(remaining / r.material_cost);
+    const crafts     = Math.min(maxCrafts, affordable);
+    if (crafts <= 0) continue;
+    const spent  = crafts * r.material_cost;
+    const profit = crafts * r.expected_margin;
+    plan.push({ r, crafts, spent, profit });
+    remaining -= spent;
+  }
+
+  if (!plan.length) {
+    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">Not enough gold for any recipe at current prices.</div>';
+    return;
+  }
+
+  const totalSpent  = plan.reduce((s, p) => s + p.spent, 0);
+  const totalProfit = plan.reduce((s, p) => s + p.profit, 0);
+
+  // Show yield column whenever flasks are in the plan (procs create extra output)
+  const hasFlasks = plan.some(p => p.r.proc_yield > 1);
+
+  let html = '<table class="planner-table"><thead><tr>' +
+    '<th>Recipe</th>' +
+    (hasFlasks ? '<th style="text-align:right" title="Crafts → expected flask output with 1.35× proc yield">Crafts → Yield</th>' : '<th style="text-align:right">Crafts</th>') +
+    '<th style="text-align:right">Cost</th>' +
+    '<th style="text-align:right">Exp. Profit</th><th style="text-align:right">ROI</th>' +
+    '</tr></thead><tbody>';
+
+  for (const { r, crafts, spent, profit } of plan) {
+    const roi        = ((profit / spent) * 100).toFixed(0);
+    const yieldCell  = hasFlasks
+      ? (r.proc_yield > 1
+          ? '<td style="text-align:right">' + crafts + ' <span style="color:var(--gold)">→ ~' + (crafts * r.proc_yield).toFixed(1) + '</span></td>'
+          : '<td style="text-align:right;color:var(--muted)">' + crafts + '</td>')
+      : '<td style="text-align:right">' + crafts + '</td>';
+    const timingCell = flaskTimingBadges(r);
+    html += '<tr>' +
+      '<td><span class="alchemy-type-badge ' + r.alchemy_type + '">' + r.alchemy_type + '</span> ' + escHtml(r.output_name) + timingCell + '</td>' +
+      yieldCell +
+      '<td style="text-align:right">' + copperToGold(spent) + '</td>' +
+      '<td style="text-align:right;color:var(--green)">' + copperToGold(profit) + '</td>' +
+      '<td style="text-align:right;color:var(--green)">' + roi + '%</td>' +
+      '</tr>';
+  }
+
+  const totalRoi = totalSpent > 0 ? ((totalProfit / totalSpent) * 100).toFixed(0) : 0;
+  html += '<tr class="planner-total">' +
+    '<td colspan="2">' + plan.length + ' recipes' + (remaining > 0 ? ' &middot; ' + copperToGold(remaining) + ' unspent' : '') + '</td>' +
+    '<td style="text-align:right">' + copperToGold(totalSpent) + '</td>' +
+    '<td style="text-align:right;color:var(--green)">' + copperToGold(totalProfit) + '</td>' +
+    '<td style="text-align:right;color:var(--green)">' + totalRoi + '%</td>' +
+    '</tr></tbody></table>';
+
+  resultEl.innerHTML = html;
+  renderSpecRotation(craftingData.items, alchemySpec);
+}
+
+function renderSpecRotation(items, currentSpec) {
+  const PROC_YIELD_VAL = 1.35;
+  const RESPEC_COST    = 1_500_000; // 150g in copper
+
+  function yieldForSpec(alchemyType, spec) {
+    if (!alchemyType || alchemyType === 'transmute' || alchemyType === 'other') return 1.0;
+    if (spec === 'Elixir Master' && (alchemyType === 'flask' || alchemyType === 'elixir')) return PROC_YIELD_VAL;
+    if (spec === 'Potion Master' && alchemyType === 'potion') return PROC_YIELD_VAL;
+    return 1.0;
+  }
+
+  // net_proceeds = profit + material_cost (since profit = net_proceeds * 1.0 - mats for worst-case)
+  function evForSpec(r, spec) {
+    if (!r.alchemy_type || r.material_cost == null || r.profit == null) return null;
+    const netProceeds = r.profit + r.material_cost;
+    return Math.round(netProceeds * yieldForSpec(r.alchemy_type, spec) - r.material_cost);
+  }
+
+  // Exclude transmutes — they need Transmutation Mastery, not Elixir/Potion Master
+  const alchemyItems = items.filter(r => r.alchemy_type && r.alchemy_type !== 'transmute' && r.material_cost != null && r.profit != null);
+
+  function dailyProfitForSpec(spec) {
+    return alchemyItems.reduce((sum, r) => {
+      const m = evForSpec(r, spec);
+      if (m == null || m <= 0) return sum;
+      const cap = r.daily_cap != null ? Math.max(1, Math.round(r.daily_cap)) : 5;
+      return sum + m * cap;
+    }, 0);
+  }
+
+  const elixirProfit = dailyProfitForSpec('Elixir Master');
+  const potionProfit = dailyProfitForSpec('Potion Master');
+
+  function topRowsForSpec(spec) {
+    return alchemyItems
+      .map(r => ({ r, m: evForSpec(r, spec) }))
+      .filter(({ m }) => m != null && m > 0)
+      .sort((a, b) => b.m - a.m)
+      .slice(0, 3)
+      .map(({ r, m }) => {
+        const cap = r.daily_cap != null ? Math.max(1, Math.round(r.daily_cap)) : 5;
+        return '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">' +
+          '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">' + escHtml(r.output_name) + '</span>' +
+          '<span style="color:var(--green);white-space:nowrap;margin-left:6px">' + copperToGold(m) + ' &times;' + cap + '</span>' +
+          '</div>';
+      }).join('') || '<div style="font-size:11px;color:#555">No profitable recipes</div>';
+  }
+
+  const diff          = potionProfit - elixirProfit;
+  const betterSpec    = diff > 0 ? 'Potion Master' : 'Elixir Master';
+  const advantage     = Math.abs(diff);
+  const breakEvenDays = advantage > 0 ? Math.ceil(RESPEC_COST / advantage) : null;
+  const isOptimal     = currentSpec === betterSpec;
+
+  const rotationSection  = document.getElementById('rotation-section');
+  const rotationColsEl   = document.getElementById('rotation-cols');
+  const rotationVerdictEl = document.getElementById('rotation-verdict');
+
+  rotationSection.style.display = 'block';
+  rotationColsEl.innerHTML =
+    '<div class="rotation-col elixir">' +
+    '<h4>Elixir Master</h4>' + topRowsForSpec('Elixir Master') +
+    '<div style="border-top:1px solid #30363d;margin-top:6px;padding-top:6px;font-size:11px;color:var(--muted)">~' + copperToGold(elixirProfit) + '/day</div>' +
+    '</div>' +
+    '<div class="rotation-divider"><span>vs</span></div>' +
+    '<div class="rotation-col potion">' +
+    '<h4>Potion Master</h4>' + topRowsForSpec('Potion Master') +
+    '<div style="border-top:1px solid #30363d;margin-top:6px;padding-top:6px;font-size:11px;color:var(--muted)">~' + copperToGold(potionProfit) + '/day</div>' +
+    '</div>';
+
+  if (isOptimal) {
+    rotationVerdictEl.className = 'rotation-verdict worth-it';
+    rotationVerdictEl.textContent = 'Your current spec (' + currentSpec + ') is already optimal. No respec needed.';
+  } else {
+    const worthIt = breakEvenDays != null && breakEvenDays <= 4;
+    rotationVerdictEl.className = 'rotation-verdict ' + (worthIt ? 'worth-it' : 'not-worth');
+    rotationVerdictEl.textContent = betterSpec + ' earns ' +
+      copperToGold(advantage).replace(/<[^>]+>/g, '') + '/day more. ' +
+      (breakEvenDays != null ? 'Respec (150g) breaks even in ~' + breakEvenDays + ' day(s).' : '');
+  }
+}
+
+// ── Sales History widget ────────────────────────────────────────────────────
+async function loadSalesHistory() {
+  const body = document.getElementById('sales-body');
+  const sub  = document.getElementById('sales-subtitle');
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  try {
+    const [history, summary] = await Promise.all([
+      apiFetch('/api/sales/history?days=30&limit=20'),
+      apiFetch('/api/sales/summary?days=30'),
+    ]);
+
+    if (!history || !history.length) {
+      body.innerHTML = '<div class="widget-empty"><div>No sales history yet</div>' +
+        '<div class="hint">Requires TSM_SAVEDVARS_PATH to be set and csvSales data present in TradeSkillMaster.lua</div></div>';
+      return;
+    }
+
+    if (summary && summary.total_revenue) {
+      sub.textContent = summary.total_sales + ' sales · ' + (summary.total_revenue / 10000).toFixed(1) + 'g revenue (30d)';
+    }
+
+    // Header row
+    let html = '<div class="sales-row" style="padding:4px 16px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)">' +
+      '<div>Item</div><div>Revenue</div><div>Qty</div><div>Sales</div></div>';
+
+    html += history.map(r =>
+      '<div class="sales-row">' +
+      '<div class="sales-row-name">' + wowLink(r.item_id, r.item_name || ('Item #' + r.item_id)) + '</div>' +
+      '<div class="sales-revenue">' + copperToGold(r.total_revenue) + '</div>' +
+      '<div class="sales-meta">' + Number(r.total_qty).toLocaleString() + '</div>' +
+      '<div class="sales-meta">' + r.sale_count + '</div>' +
+      '</div>'
+    ).join('');
+
+    body.innerHTML = html;
+  } catch(e) {
+    body.innerHTML = '<div class="widget-empty"><div>No sales data</div><div class="hint">' + escHtml(e.message) + '</div></div>';
   }
 }
 
@@ -887,7 +1736,7 @@ function selectItem(item) {
   document.querySelectorAll('.ticker-card').forEach(c => c.classList.remove('selected'));
   const card = document.querySelector('.ticker-card[data-id="' + item.item_id + '"]');
   if (card) card.classList.add('selected');
-  loadChart(item.item_id, item.item_name);
+  openChart(item.item_id, item.item_name);
 }
 
 const DAY_NAMES  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -897,7 +1746,13 @@ let chartRange   = '24h';
 function setChartRange(range) {
   chartRange = range;
   document.querySelectorAll('.range-tab').forEach(b => b.classList.toggle('active', b.dataset.range === range));
-  if (selectedItem) loadChart(selectedItem.item_id, selectedItem.item_name);
+  if (selectedItem) openChart(selectedItem.item_id, selectedItem.item_name);
+}
+
+// Routes to the correct chart function based on the current range
+function openChart(itemId, itemName) {
+  if (chartRange === 'wk') loadWeeklyRotationChart(itemId, itemName);
+  else loadChart(itemId, itemName);
 }
 
 function chartLabel(row, range) {
@@ -931,14 +1786,13 @@ async function loadChart(itemId, itemName) {
     }
 
     const labels  = rows.map(r => chartLabel(r, chartRange));
-    const medians = rows.map(r => Math.round(r.median_unit_price) / 10000);
-    const mins    = rows.map(r => Math.round(r.min_unit_price)    / 10000);
+    const mins    = rows.map(r => Math.round(r.min_unit_price) / 10000);
     const colors  = tickColors(rows, chartRange);
 
-    // Rolling moving average over the median line — window adapts to range
+    // Rolling moving average over the floor price line — window adapts to range
     const maWindow = chartRange === '30d' ? 7 : chartRange === '7d' ? 3 : 6;
-    const maData   = medians.map((_, i) => {
-      const slice = medians.slice(Math.max(0, i - maWindow + 1), i + 1).filter(v => v != null);
+    const maData   = mins.map((_, i) => {
+      const slice = mins.slice(Math.max(0, i - maWindow + 1), i + 1).filter(v => v != null);
       return slice.length ? +(slice.reduce((a, b) => a + b, 0) / slice.length).toFixed(4) : null;
     });
     const maLabel  = chartRange === '30d' ? '7-day MA' : chartRange === '7d' ? '3-day MA' : '6h MA';
@@ -950,9 +1804,8 @@ async function loadChart(itemId, itemName) {
       data: {
         labels,
         datasets: [
-          { label:'Median',     data:medians, borderColor:'#f0a500', backgroundColor:'rgba(240,165,0,0.08)', borderWidth:2, tension:0.3, fill:true,        pointRadius: rows.length<=14 ? 4 : 2 },
-          { label:'Min Buyout', data:mins,    borderColor:'#3fb950', backgroundColor:'transparent',          borderWidth:1.5, borderDash:[4,3], tension:0.3, pointRadius:0 },
-          { label:maLabel,      data:maData,  borderColor:'#6e7681', backgroundColor:'transparent',          borderWidth:1.5, borderDash:[2,2], tension:0.3, pointRadius:0 },
+          { label:'Floor Price', data:mins,   borderColor:'#3fb950', backgroundColor:'rgba(63,185,80,0.08)', borderWidth:2, tension:0.3, fill:true, pointRadius: rows.length<=14 ? 4 : 2 },
+          { label:maLabel,       data:maData, borderColor:'#6e7681', backgroundColor:'transparent',          borderWidth:1.5, borderDash:[2,2], tension:0.3, pointRadius:0 },
         ]
       },
       options: {
@@ -983,14 +1836,13 @@ async function loadChart(itemId, itemName) {
     // Stats bar
     const first = rows[0];
     const last  = rows[rows.length - 1];
-    const trend = last.median_unit_price - first.median_unit_price;
-    const trendPct = first.median_unit_price > 0 ? Math.round((trend / first.median_unit_price) * 100) : 0;
+    const trend = last.min_unit_price - first.min_unit_price;
+    const trendPct = first.min_unit_price > 0 ? Math.round((trend / first.min_unit_price) * 100) : 0;
     const trendColor = trend > 0 ? 'var(--red)' : trend < 0 ? 'var(--green)' : 'var(--muted)';
     const trendSign  = trend >= 0 ? '+' : '';
     const supply = last.total_supply != null ? Number(last.total_supply) : null;
     document.getElementById('chart-stats').innerHTML =
-      '<span>Median: <span class="chart-stat-val">' + (last.median_unit_price/10000).toFixed(2) + 'g</span></span>' +
-      '<span>Min: <span class="chart-stat-val">' + (last.min_unit_price/10000).toFixed(2) + 'g</span></span>' +
+      '<span>Floor: <span class="chart-stat-val">' + (last.min_unit_price/10000).toFixed(2) + 'g</span></span>' +
       (supply != null ? '<span>Supply: <span class="chart-stat-val">' + supply + '</span></span>' : '') +
       (rows.length > 1 ? '<span>Trend: <span style="color:' + trendColor + ';font-weight:600">' + trendSign + trendPct + '% over ' + (chartRange === '24h' ? '24h' : chartRange) + '</span></span>' : '');
 
@@ -998,6 +1850,135 @@ async function loadChart(itemId, itemName) {
     loadWeeklyPattern(itemId);
   } catch(e) {
     document.getElementById('chart-title').textContent = itemName + ' \u2014 failed to load chart';
+  }
+}
+
+// ── Recipe price chart ──────────────────────────────────────────────────────
+// Opens the chart panel with a multi-line chart: output item + each material.
+const MAT_COLORS = ['#58a6ff','#3fb950','#ff7b72','#d2a8ff','#ffa657','#79c0ff','#56d364'];
+
+async function openRecipeChart(outputId, outputName) {
+  const panel = document.getElementById('chart-panel');
+  panel.classList.add('visible');
+  document.getElementById('chart-title').textContent = outputName + ' \u2014 crafting chart';
+  document.getElementById('chart-stats').innerHTML = '';
+  document.getElementById('weekly-panel').style.display = 'none';
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  try {
+    const data = await apiFetch('/api/prices/recipe?output_id=' + outputId + '&range=7d');
+
+    // Build a unified set of hour labels from the output's data
+    const outputData  = data.output.data;
+    const materials   = data.materials.filter(m => m.data.length > 0);
+
+    if (!outputData.length && !materials.length) {
+      document.getElementById('chart-title').textContent = outputName + ' \u2014 no price history yet';
+      return;
+    }
+
+    // Collect all unique hours, sorted
+    const hourSet = new Set();
+    outputData.forEach(r => hourSet.add(r.hour));
+    materials.forEach(m => m.data.forEach(r => hourSet.add(r.hour)));
+    const hours = [...hourSet].sort();
+
+    const fmt = h => {
+      const d = new Date(h);
+      return DAY_NAMES[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate();
+    };
+    const labels = hours.map(fmt);
+
+    // Helper: map item data to aligned array of gold values
+    const toGold = (itemData) => {
+      const byHour = Object.fromEntries(itemData.map(r => [r.hour, r.price / 10000]));
+      return hours.map(h => byHour[h] ?? null);
+    };
+
+    const datasets = [];
+
+    // Output item — gold, thick, filled
+    if (outputData.length) {
+      datasets.push({
+        label:           data.output.name,
+        data:            toGold(outputData),
+        borderColor:     '#f0a500',
+        backgroundColor: 'rgba(240,165,0,0.08)',
+        borderWidth:     2.5,
+        tension:         0.3,
+        fill:            true,
+        pointRadius:     3,
+        yAxisID:         'yOut',
+      });
+    }
+
+    // Materials — each a different color, right-axis
+    materials.forEach((m, i) => {
+      datasets.push({
+        label:           m.name + (m.qty > 1 ? ' \xd7' + m.qty : ''),
+        data:            toGold(m.data),
+        borderColor:     MAT_COLORS[i % MAT_COLORS.length],
+        backgroundColor: 'transparent',
+        borderWidth:     1.5,
+        borderDash:      [4, 3],
+        tension:         0.3,
+        fill:            false,
+        pointRadius:     2,
+        yAxisID:         'yMat',
+      });
+    });
+
+    const ctx = document.getElementById('price-chart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode:'index', intersect:false },
+        plugins: {
+          legend: { labels: { color:'#8b949e', font:{ size:11 } } },
+          tooltip: {
+            backgroundColor:'#1f2937', borderColor:'#30363d', borderWidth:1,
+            titleColor:'#e6edf3', bodyColor:'#8b949e',
+            callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.parsed.y.toFixed(2) + 'g' }
+          }
+        },
+        scales: {
+          x: { ticks:{ color:'#8b949e', font:{size:11}, maxTicksLimit:7 }, grid:{ color:'#1a1f26' } },
+          yOut: {
+            position: 'left',
+            ticks: { color:'#f0a500', font:{size:11}, callback: v => v.toFixed(1) + 'g' },
+            grid:  { color:'#1a1f26' },
+            title: { display:true, text:'Sell price', color:'#f0a500', font:{size:10} },
+          },
+          yMat: {
+            position: 'right',
+            ticks: { color:'#8b949e', font:{size:11}, callback: v => v.toFixed(1) + 'g' },
+            grid:  { drawOnChartArea: false },
+            title: { display:true, text:'Mat price', color:'#8b949e', font:{size:10} },
+          },
+        }
+      }
+    });
+
+    // Stats bar: latest output price, total mat cost, margin
+    const lastOut = outputData.length ? outputData[outputData.length - 1].price : null;
+    let totalMatCost = 0;
+    let matCostKnown = true;
+    for (const m of materials) {
+      const last = m.data.length ? m.data[m.data.length - 1].price : null;
+      if (last != null) { totalMatCost += last * m.qty; }
+      else { matCostKnown = false; }
+    }
+    const profit      = lastOut != null && matCostKnown ? lastOut - totalMatCost : null;
+    const profitColor = profit == null ? '#8b949e' : profit >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('chart-stats').innerHTML =
+      (lastOut     != null ? '<span>Sell: <span class="chart-stat-val">' + (lastOut/10000).toFixed(2) + 'g</span></span>' : '') +
+      (matCostKnown        ? '<span>Mats: <span class="chart-stat-val">' + (totalMatCost/10000).toFixed(2) + 'g</span></span>' : '') +
+      (profit      != null ? '<span>Margin: <span style="color:' + profitColor + ';font-weight:600">' + (profit >= 0 ? '+' : '') + (profit/10000).toFixed(2) + 'g</span></span>' : '');
+
+  } catch(e) {
+    document.getElementById('chart-title').textContent = outputName + ' \u2014 failed to load chart';
   }
 }
 
@@ -1080,6 +2061,117 @@ async function loadWeeklyPattern(itemId) {
   } catch(_) {
     document.getElementById('weekly-panel').style.display = 'none';
   }
+}
+
+async function loadWeeklyRotationChart(itemId, itemName) {
+  document.getElementById('chart-title').textContent = itemName + ' \u2014 Weekly Rotation';
+  document.getElementById('chart-stats').innerHTML = '';
+  document.getElementById('weekly-panel').style.display = 'none';
+
+  const rows = await apiFetch('/api/prices/' + itemId + '?range=28d');
+  if (!rows || rows.length === 0) {
+    document.getElementById('chart-title').textContent = itemName + ' \u2014 no data';
+    return;
+  }
+
+  // Group rows into WoW weeks (Tue–Mon). Slot: Tue=0, Wed=1, Thu=2, Fri=3, Sat=4, Sun=5, Mon=6
+  // Use UTC arithmetic to match database DOW (EXTRACT DOW is in UTC)
+  const weeks = {}; // key: Tuesday date string "YYYY-MM-DD"
+  rows.forEach(r => {
+    const dow  = r.day_of_week; // 0=Sun,1=Mon,2=Tue,...,6=Sat  (PostgreSQL EXTRACT DOW)
+    const slot = (dow - 2 + 7) % 7;
+    const d    = new Date(r.hour);
+    const tueMs  = d.getTime() - slot * 86400000;
+    const wkKey  = new Date(tueMs).toISOString().slice(0, 10);
+    if (!weeks[wkKey]) weeks[wkKey] = {};
+    weeks[wkKey][slot] = Number(r.min_unit_price);
+  });
+
+  const wkKeys = Object.keys(weeks).sort();
+
+  // Determine current WoW week's Tuesday in UTC
+  const nowUTCDow  = new Date().getUTCDay();
+  const todaySlot  = (nowUTCDow - 2 + 7) % 7;
+  const thisTueMs  = Date.now() - todaySlot * 86400000;
+  const thisTueStr = new Date(thisTueMs).toISOString().slice(0, 10);
+
+  const SLOT_LABELS  = ['Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon'];
+  const PRIOR_COLORS = ['#8b949e', '#58a6ff', '#3fb950', '#d2a8ff'];
+  const CURRENT_COLOR = '#f0a500';
+
+  const datasets = wkKeys.map((wkKey, i) => {
+    const isCurrent = wkKey === thisTueStr;
+    const color = isCurrent ? CURRENT_COLOR : PRIOR_COLORS[i % PRIOR_COLORS.length];
+    const weekData = weeks[wkKey];
+    const data = Array.from({length: 7}, (_, slot) =>
+      weekData[slot] != null ? +(weekData[slot] / 10000).toFixed(4) : null
+    );
+    const d     = new Date(wkKey + 'T12:00:00Z');
+    const label = isCurrent ? 'This week'
+                            : 'Wk ' + (d.getUTCMonth() + 1) + '/' + d.getUTCDate();
+    return {
+      label,
+      data,
+      borderColor: color,
+      backgroundColor: 'transparent',
+      borderWidth: isCurrent ? 2.5 : 1.5,
+      borderDash: isCurrent ? [] : [5, 3],
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      spanGaps: true,
+      tension: 0.3,
+      order: isCurrent ? 0 : 1,
+    };
+  });
+
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  chartInstance = new Chart(document.getElementById('price-chart'), {
+    type: 'line',
+    data: { labels: SLOT_LABELS, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: { color: '#e6edf3', boxWidth: 20, padding: 10, font: { size: 11 } }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.parsed.y != null
+              ? ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + 'g'
+              : null
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: ctx => ctx.index === 0 ? CURRENT_COLOR : '#8b949e',
+            font: { size: 11 }
+          },
+          grid: { color: '#21262d' }
+        },
+        y: {
+          ticks: {
+            color: '#8b949e',
+            callback: v => v.toFixed(1) + 'g',
+            font: { size: 11 }
+          },
+          grid: { color: '#21262d' }
+        }
+      }
+    }
+  });
+
+  // Stats bar — today's price + how many weeks of data
+  const thisWeekData = weeks[thisTueStr];
+  const todayPrice   = thisWeekData ? thisWeekData[todaySlot] : null;
+  document.getElementById('chart-stats').innerHTML =
+    (todayPrice ? '<span>Today: <span class="chart-stat-val">' + (todayPrice / 10000).toFixed(2) + 'g</span></span>' : '') +
+    '<span>Weeks: <span class="chart-stat-val">' + wkKeys.length + '</span></span>';
 }
 
 async function removeItem(e, itemId) {
@@ -1238,26 +2330,38 @@ async function saveSettings() {
   } catch(e) { console.error('save profile failed', e); }
 }
 
+// ── PWA: service worker registration ──────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// ── Heartbeat — keeps server alive; server auto-shuts-down when we stop ──
+// Only active when server was started in APP_MODE (via desktop launcher).
+// Frontend pings every 8s; server exits after 45s of silence.
+(function startHeartbeat() {
+  setInterval(() => navigator.sendBeacon('/api/heartbeat'), 8000);
+})();
+
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
   await loadProfile();
   await loadWatchlist();
-  loadDeals();
   loadMotes();
-  loadMovers();
-  loadConsumables();
   loadCrafting();
+  loadFlaskWidget();
+  loadAlchemyMarket();
+  loadSalesHistory();
 }
 
 // Auto-refresh every 60s
 setInterval(() => {
-  loadDeals();
   loadMotes();
-  loadMovers();
-  loadConsumables();
-  loadCrafting(); // also refreshes Gather vs Craft and Action Feed (CRAFT signals)
-  if (selectedItem) loadChart(selectedItem.item_id, selectedItem.item_name);
-  watchlist.forEach(w => fetchTickerStats(w.item_id)); // also refreshes Action Feed (SELL signals)
+  loadCrafting();
+  loadFlaskWidget();
+  loadAlchemyMarket();
+  loadSalesHistory();
+  if (selectedItem) openChart(selectedItem.item_id, selectedItem.item_name);
+  watchlist.forEach(w => fetchTickerStats(w.item_id));
 }, 60_000);
 
 init();

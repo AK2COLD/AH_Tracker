@@ -19,6 +19,49 @@ import { getConsumablesForSpec, getSpecRole } from './data/consumables.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
+// ── Alchemy Volume Strategy helpers ─────────────────────────────────────────
+const PROC_RATE      = 0.10;
+const PROC_EXTRA_AVG = 3.5;  // avg of 2–5 extra items
+const PROC_YIELD     = 1 + PROC_RATE * PROC_EXTRA_AVG; // 1.35
+
+function classifyAlchemyType(profession, recipeName, outputName) {
+    if (profession !== 'Alchemy') return null;
+    const rn = recipeName || '';
+    const on = outputName  || '';
+    if (rn.startsWith('Transmute:')) return 'transmute';
+    if (on.includes('Flask of') || on === 'Flask of Chromatic Wonder') return 'flask';
+    if (on.startsWith('Elixir') || on.includes('Elixir')) return 'elixir';
+    if (on.includes('Potion') || on.includes('Cauldron')) return 'potion';
+    return 'other'; // Alchemist stones, etc.
+}
+
+// Returns the effective yield multiplier given spec + recipe type.
+// Elixir Master procs on flasks + elixirs; Potion Master procs on potions.
+function alchemyProcYield(alchemyType, alchemySpec) {
+    if (!alchemyType || alchemyType === 'transmute' || alchemyType === 'other') return 1.0;
+    if (alchemySpec === 'Elixir Master'  && (alchemyType === 'flask' || alchemyType === 'elixir')) return PROC_YIELD;
+    if (alchemySpec === 'Potion Master'  && alchemyType === 'potion') return PROC_YIELD;
+    return 1.0;
+}
+
+// ── App-mode auto-shutdown (activated by APP_MODE=1 env var) ────────────────
+// Desktop launcher sets APP_MODE=1. The frontend sends POST /api/heartbeat
+// every 8 seconds. If 45 seconds pass without a ping, we exit cleanly.
+// Normal `npm run dev` runs without APP_MODE, so this never fires in dev.
+let lastHeartbeat    = null;
+let watcherInstalled = false;
+
+function installShutdownWatcher() {
+    if (watcherInstalled || process.env.APP_MODE !== '1') return;
+    watcherInstalled = true;
+    setInterval(() => {
+        if (lastHeartbeat && Date.now() - lastHeartbeat > 45_000) {
+            console.log('[server] App window closed — shutting down (APP_MODE).');
+            process.exit(0);
+        }
+    }, 10_000);
+}
+
 export function createApp() {
     const app = express();
     app.set('etag', false);
@@ -32,6 +75,15 @@ export function createApp() {
     app.use('/api', (_req, res, next) => {
         res.set('Cache-Control', 'no-store');
         next();
+    });
+
+    // ----------------------------------------------------------------
+    // POST /api/heartbeat — frontend pings every 8s to keep server alive
+    // ----------------------------------------------------------------
+    app.post('/api/heartbeat', (_req, res) => {
+        lastHeartbeat = Date.now();
+        installShutdownWatcher();
+        res.json({ ok: true });
     });
 
     // ----------------------------------------------------------------
@@ -158,14 +210,13 @@ export function createApp() {
 
         try {
             let result;
-            if (range === '7d' || range === '30d') {
-                const interval = range === '7d' ? '7 days' : '30 days';
+            if (range === '7d' || range === '28d' || range === '30d') {
+                const interval = range === '7d' ? '7 days' : range === '28d' ? '28 days' : '30 days';
                 // Daily aggregates from the hourly materialized view
                 result = await pool.query(
                     `SELECT
                          DATE_TRUNC('day', hour)                         AS hour,
                          MIN(min_unit_price)                             AS min_unit_price,
-                         AVG(median_unit_price)::BIGINT                  AS median_unit_price,
                          SUM(total_supply)                               AS total_supply,
                          EXTRACT(DOW FROM DATE_TRUNC('day', hour))::INT  AS day_of_week
                      FROM ah_price_hourly
@@ -177,7 +228,7 @@ export function createApp() {
                 );
             } else {
                 result = await pool.query(
-                    `SELECT hour, min_unit_price, median_unit_price, total_supply
+                    `SELECT hour, min_unit_price, total_supply
                      FROM ah_price_hourly
                      WHERE item_id = $1
                        AND hour >= NOW() - INTERVAL '24 hours'
@@ -208,7 +259,7 @@ export function createApp() {
                      SELECT
                          DATE_TRUNC('day', hour)         AS day,
                          EXTRACT(DOW FROM hour)::INT     AS dow,
-                         AVG(median_unit_price)::BIGINT  AS day_avg,
+                         AVG(min_unit_price)::BIGINT     AS day_avg,
                          MIN(min_unit_price)             AS day_min
                      FROM ah_price_hourly
                      WHERE item_id = $1
@@ -248,9 +299,12 @@ export function createApp() {
         }
 
         try {
-            // Most recent hourly bucket
+            // Most recent hourly bucket.
+            // current_price = min_unit_price (the cheapest listing seen that hour).
+            // median_unit_price skews high because the AH has many overpriced listings
+            // and using it as "the price" made the app show 40-70g above actual floor.
             const currentResult = await pool.query(
-                `SELECT median_unit_price AS current_price, min_unit_price AS current_min
+                `SELECT min_unit_price AS current_price, median_unit_price AS current_median
                  FROM ah_price_hourly
                  WHERE item_id = $1
                  ORDER BY hour DESC
@@ -266,9 +320,9 @@ export function createApp() {
             const statsResult = await pool.query(
                 `SELECT
                     MIN(min_unit_price)    AS low_24h,
-                    MAX(median_unit_price) AS high_24h,
+                    MAX(min_unit_price)    AS high_24h,
                     -- The oldest bucket in the 24h window as the "24h ago" reference
-                    (SELECT median_unit_price
+                    (SELECT min_unit_price
                      FROM ah_price_hourly
                      WHERE item_id = $1
                        AND hour >= NOW() - INTERVAL '25 hours'
@@ -291,13 +345,13 @@ export function createApp() {
                 : '0.00';
 
             res.json({
-                current_price:  currentPrice,
-                current_min:    Number(current.current_min),
-                price_24h_ago:  price24hAgo,
-                change_24h:     change24h,
-                change_pct_24h: Number(changePct24h),
-                high_24h:       Number(stats.high_24h),
-                low_24h:        Number(stats.low_24h),
+                current_price:   currentPrice,
+                current_median:  Number(current.current_median),
+                price_24h_ago:   price24hAgo,
+                change_24h:      change24h,
+                change_pct_24h:  Number(changePct24h),
+                high_24h:        Number(stats.high_24h),
+                low_24h:         Number(stats.low_24h),
             });
         } catch (err) {
             console.error('[api] GET /api/prices/stats failed:', err.message);
@@ -330,21 +384,22 @@ export function createApp() {
     // Body: { class, spec, faction, race, professions[] }
     // ----------------------------------------------------------------
     app.put('/api/profile', async (req, res) => {
-        const { class: cls, spec, faction, race, professions } = req.body;
+        const { class: cls, spec, faction, race, professions, alchemy_spec } = req.body;
         try {
             const result = await pool.query(
-                `INSERT INTO profiles (user_id, class, spec, faction, race, professions, updated_at)
-                 VALUES ('default', $1, $2, $3, $4, $5, NOW())
+                `INSERT INTO profiles (user_id, class, spec, faction, race, professions, alchemy_spec, updated_at)
+                 VALUES ('default', $1, $2, $3, $4, $5, $6, NOW())
                  ON CONFLICT (user_id) DO UPDATE SET
                      class        = EXCLUDED.class,
                      spec         = EXCLUDED.spec,
                      faction      = EXCLUDED.faction,
                      race         = EXCLUDED.race,
                      professions  = EXCLUDED.professions,
+                     alchemy_spec = EXCLUDED.alchemy_spec,
                      updated_at   = NOW()
                  RETURNING *`,
                 [cls || null, spec || null, faction || null, race || null,
-                 JSON.stringify(professions || [])]
+                 JSON.stringify(professions || []), alchemy_spec || 'Elixir Master']
             );
             res.json(result.rows[0]);
         } catch (err) {
@@ -365,7 +420,7 @@ export function createApp() {
             const result = await pool.query(`
                 WITH ma AS (
                     SELECT item_id,
-                           AVG(median_unit_price)::BIGINT AS moving_avg
+                           AVG(min_unit_price)::BIGINT AS moving_avg
                     FROM   ah_price_hourly
                     WHERE  hour >= NOW() - INTERVAL '30 days'
                     GROUP  BY item_id
@@ -373,7 +428,7 @@ export function createApp() {
                 ),
                 recent AS (
                     SELECT item_id,
-                           AVG(median_unit_price)::BIGINT AS recent_price
+                           AVG(min_unit_price)::BIGINT AS recent_price
                     FROM   ah_price_hourly
                     WHERE  hour >= NOW() - INTERVAL '24 hours'
                     GROUP  BY item_id
@@ -421,8 +476,8 @@ export function createApp() {
             const result = await pool.query(
                 `SELECT DISTINCT ON (i.name)
                      i.name, i.item_id,
-                     aph.median_unit_price AS price,
-                     aph.min_unit_price    AS min_price
+                     aph.min_unit_price AS price,
+                     aph.min_unit_price AS min_price
                  FROM items i
                  JOIN ah_price_hourly aph ON aph.item_id = i.item_id
                  WHERE i.name = ANY($1)
@@ -530,7 +585,7 @@ export function createApp() {
 
             const priceResult = await pool.query(
                 `SELECT DISTINCT ON (i.name)
-                        i.name, i.item_id, aph.median_unit_price AS current_price
+                        i.name, i.item_id, aph.min_unit_price AS current_price
                  FROM   items i
                  JOIN   ah_price_hourly aph ON aph.item_id = i.item_id
                  WHERE  i.name = ANY($1)
@@ -607,11 +662,13 @@ export function createApp() {
     app.get('/api/dashboard/crafting', async (_req, res) => {
         try {
             const profileResult = await pool.query(
-                `SELECT professions, profession_ranks, reputations, known_recipes FROM profiles WHERE user_id = $1`,
+                `SELECT professions, profession_ranks, reputations, known_recipes, alchemy_spec FROM profiles WHERE user_id = $1`,
                 ['default']
             );
             const profile = profileResult.rows[0];
             if (!profile) return res.json({ items: [], needs_profile: true });
+
+            const alchemySpec = profile.alchemy_spec || 'Elixir Master';
 
             const profs = Array.isArray(profile.professions)
                 ? profile.professions
@@ -670,13 +727,13 @@ export function createApp() {
             const matNames      = [...new Set(myRecipes.flatMap(r => r.materials.map(m => m.name)))];
 
             const priceSubquery = (col) =>
-                `(SELECT aph2.median_unit_price FROM ah_price_hourly aph2
+                `(SELECT aph2.min_unit_price FROM ah_price_hourly aph2
                   WHERE aph2.item_id = ${col} ORDER BY aph2.hour DESC LIMIT 1)`;
 
             const [outputPrices, matPrices] = await Promise.all([
                 outputItemIds.length ? pool.query(
                     `SELECT i.item_id, i.name,
-                            AVG(aph.median_unit_price) AS avg_price,
+                            AVG(aph.min_unit_price) AS avg_price,
                             ${priceSubquery('i.item_id')} AS current_price,
                             i.tsm_num_auctions, i.tsm_market_value,
                             i.region_sold_per_day, i.region_sale_pct, i.region_market_value
@@ -690,7 +747,7 @@ export function createApp() {
                 ) : { rows: [] },
                 matNames.length ? pool.query(
                     `SELECT i.name, i.item_id,
-                            AVG(aph.median_unit_price) AS avg_price,
+                            AVG(aph.min_unit_price) AS avg_price,
                             ${priceSubquery('i.item_id')} AS current_price
                      FROM items i
                      JOIN ah_price_hourly aph ON aph.item_id = i.item_id
@@ -772,6 +829,23 @@ export function createApp() {
                 // Market context from TSM (liquidity signals, not prices)
                 const ctx = output.market_context ?? {};
 
+                // Alchemy proc EV model
+                const alchemy_type    = classifyAlchemyType(recipe.profession, recipe.recipe_name, recipe.output_name);
+                const proc_yield      = alchemyProcYield(alchemy_type, alchemySpec);
+                const expected_margin = profitKnown
+                    ? Math.round(net_proceeds * proc_yield - material_cost)
+                    : null;
+                // Break-even safety: mat cost < 10% of net proceeds → survive 90% price crash
+                const break_even_safe = profitKnown && net_proceeds > 0
+                    ? material_cost < net_proceeds * 0.1
+                    : false;
+                // Daily capacity: transmutes are hard-capped at 1/day (24h cooldown).
+                // For everything else, use TSM regional velocity as a soft ceiling.
+                const region_spd      = ctx.region_sold_per_day != null ? Number(ctx.region_sold_per_day) : null;
+                const daily_cap       = alchemy_type === 'transmute'
+                    ? 1
+                    : region_spd != null ? Math.max(1, Math.round(region_spd)) : null;
+
                 return {
                     profession:          recipe.profession,
                     output_name:         recipe.output_name,
@@ -782,22 +856,31 @@ export function createApp() {
                     profit,
                     profit_pct,
                     missing_mats:        missing,
+                    materials:           recipe.materials,   // [{name,qty}] for client-side timing cross-ref
+                    // Alchemy EV model
+                    alchemy_type,
+                    proc_yield,
+                    expected_margin,
+                    break_even_safe,
+                    daily_cap,
                     // TSM market intelligence
                     tsm_num_auctions:    ctx.tsm_num_auctions    ?? null,
-                    region_sold_per_day: ctx.region_sold_per_day ?? null,
+                    region_sold_per_day: region_spd,
                     region_sale_pct:     ctx.region_sale_pct     ?? null,
                     region_market_value: ctx.region_market_value ?? null,
                     tsm_market_value:    ctx.tsm_market_value    ?? null,
                 };
             });
 
-            // Sort by expected gold/day = profit × region_sold_per_day.
-            // Items with no velocity data fall back to raw profit ranking.
+            // Sort by proc-adjusted expected gold/day.
+            // For alchemy, use expected_margin (incorporates proc yield) × velocity.
+            // Items with no velocity data fall back to raw margin ranking.
             // Unknowns (null profit) always go last.
             const expectedGoldPerDay = (r) => {
                 if (r.profit == null) return -Infinity;
-                const vel = r.region_sold_per_day;
-                return vel != null ? r.profit * vel : r.profit * 0.5; // treat unknown vel as 0.5/day
+                const margin = r.expected_margin ?? r.profit;
+                const vel    = r.region_sold_per_day;
+                return vel != null ? margin * vel : margin * 0.5;
             };
             results.sort((a, b) => expectedGoldPerDay(b) - expectedGoldPerDay(a));
 
@@ -858,9 +941,384 @@ export function createApp() {
                 }))
                 .sort((a, b) => Math.abs(b.gap_pct) - Math.abs(a.gap_pct));
 
-            res.json({ items: results, craft_vs_sell });
+            res.json({ items: results, craft_vs_sell, alchemy_spec: alchemySpec });
         } catch (err) {
             console.error('[api] GET /api/dashboard/crafting failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/dashboard/flask-strategy
+    // All TBC flask recipes with proc economics — no known_recipes filter.
+    // Shows every flask regardless of whether the character has learned it.
+    // ----------------------------------------------------------------
+    app.get('/api/dashboard/flask-strategy', async (_req, res) => {
+        try {
+            const profileResult = await pool.query(
+                `SELECT alchemy_spec, reputations FROM profiles WHERE user_id = 'default'`
+            );
+            const prof = profileResult.rows[0];
+            const alchemySpec = prof?.alchemy_spec || 'Elixir Master';
+            const reps = prof?.reputations || {};
+            const bestStanding = Math.max(4, ...VENDOR_FACTIONS.map(f => reps[f] ?? 4));
+            const discount = REP_DISCOUNTS[Math.min(bestStanding, 8)] ?? 0;
+            const vendorCost = (name) => {
+                const base = VENDOR_BASE_COSTS[name];
+                return base != null ? Math.round(base * (1 - discount)) : 0;
+            };
+
+            const catalogResult = await pool.query(
+                `SELECT recipe_id, recipe_name, profession, output_item_id,
+                        output_name, output_qty AS num_made, min_skill, materials
+                 FROM recipe_catalog
+                 WHERE profession = 'Alchemy'
+                   AND recipe_name NOT LIKE 'Transmute:%'
+                   AND output_name ILIKE '%flask%'`
+            );
+            if (!catalogResult.rows.length) return res.json({ items: [], alchemy_spec: alchemySpec });
+
+            const outputItemIds = [...new Set(catalogResult.rows.map(r => r.output_item_id).filter(Boolean))];
+            const matNames      = [...new Set(catalogResult.rows.flatMap(r => r.materials.map(m => m.name)))];
+
+            const priceSubquery = (col) =>
+                `(SELECT aph2.min_unit_price FROM ah_price_hourly aph2
+                  WHERE aph2.item_id = ${col} ORDER BY aph2.hour DESC LIMIT 1)`;
+
+            const [outputPrices, matPrices] = await Promise.all([
+                outputItemIds.length ? pool.query(
+                    `SELECT i.item_id, i.name,
+                            ${priceSubquery('i.item_id')} AS current_price,
+                            i.region_sold_per_day, i.region_sale_pct
+                     FROM items i
+                     WHERE i.item_id = ANY($1)`,
+                    [outputItemIds]
+                ) : { rows: [] },
+                matNames.length ? pool.query(
+                    `SELECT i.name, i.item_id,
+                            AVG(aph.min_unit_price) AS avg_price,
+                            ${priceSubquery('i.item_id')} AS current_price
+                     FROM items i
+                     JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                     WHERE i.name = ANY($1)
+                       AND aph.hour > NOW() - INTERVAL '7 days'
+                     GROUP BY i.name, i.item_id`,
+                    [matNames]
+                ) : { rows: [] },
+            ]);
+
+            const priceById = Object.fromEntries(outputPrices.rows.map(r => [r.item_id, r]));
+            const priceMap  = Object.fromEntries(matPrices.rows.map(r => [r.name, r]));
+            const VENDOR_ITEMS = new Set(Object.keys(VENDOR_BASE_COSTS));
+
+            const items = catalogResult.rows.map(recipe => {
+                const output = priceById[recipe.output_item_id];
+                const outputPrice = output?.current_price != null ? Number(output.current_price) * (recipe.num_made ?? 1) : null;
+
+                let material_cost = 0;
+                const missing = [];
+                for (const mat of recipe.materials) {
+                    const p = priceMap[mat.name];
+                    const matPrice = p?.current_price != null ? Number(p.current_price)
+                                   : p?.avg_price != null ? Number(p.avg_price) : null;
+                    if (matPrice != null) material_cost += mat.qty * matPrice;
+                    else if (VENDOR_ITEMS.has(mat.name)) material_cost += mat.qty * vendorCost(mat.name);
+                    else missing.push(mat.name);
+                }
+
+                const proc_yield      = alchemyProcYield('flask', alchemySpec);
+                const net_proceeds    = outputPrice != null ? Math.round(outputPrice * (1 - AH_CUT)) : null;
+                const profitKnown     = outputPrice != null && missing.length === 0;
+                const profit          = profitKnown ? net_proceeds - Math.round(material_cost) : null;
+                const expected_margin = profitKnown ? Math.round(net_proceeds * proc_yield - material_cost) : null;
+                const region_spd      = output?.region_sold_per_day != null ? Number(output.region_sold_per_day) : null;
+
+                return {
+                    output_name:         recipe.output_name,
+                    output_id:           recipe.output_item_id != null ? Number(recipe.output_item_id) : null,
+                    min_skill:           recipe.min_skill,
+                    output_price:        outputPrice != null ? Math.round(outputPrice) : null,
+                    material_cost:       profitKnown ? Math.round(material_cost) : null,
+                    profit,
+                    profit_pct:          profitKnown && material_cost > 0 ? Math.round((profit / material_cost) * 100) : null,
+                    missing_mats:        missing,
+                    materials:           recipe.materials,
+                    alchemy_type:        'flask',
+                    proc_yield,
+                    expected_margin,
+                    region_sold_per_day: region_spd,
+                    region_sale_pct:     output?.region_sale_pct != null ? Number(output.region_sale_pct) : null,
+                };
+            });
+
+            // Sort: known price + profitable first, then by EV/day, no-price last
+            items.sort((a, b) => {
+                const ev = r => {
+                    const m = r.expected_margin ?? r.profit;
+                    if (m == null) return -Infinity;
+                    return m * (r.region_sold_per_day ?? 0.5);
+                };
+                return ev(b) - ev(a);
+            });
+
+            res.json({ items, alchemy_spec: alchemySpec });
+        } catch (err) {
+            console.error('[api] GET /api/dashboard/flask-strategy failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/prices/recipe?output_id=X&range=7d
+    // Price history for a crafted item plus all its material ingredients,
+    // returned as parallel arrays so the frontend can plot them together.
+    // ----------------------------------------------------------------
+    app.get('/api/prices/recipe', async (req, res) => {
+        const outputItemId = parseInt(req.query.output_id, 10);
+        const range        = req.query.range || '7d';
+        if (isNaN(outputItemId)) return res.status(400).json({ error: 'Invalid output_id' });
+
+        try {
+            const recipeResult = await pool.query(
+                `SELECT output_name, materials FROM recipe_catalog
+                 WHERE output_item_id = $1 LIMIT 1`,
+                [outputItemId]
+            );
+            if (!recipeResult.rows.length) {
+                return res.status(404).json({ error: 'Recipe not found' });
+            }
+
+            const { output_name, materials } = recipeResult.rows[0];
+            const matNames = materials.map(m => m.name);
+
+            // Resolve material names → item_ids
+            const matItemsResult = await pool.query(
+                `SELECT item_id, name FROM items WHERE name = ANY($1)`,
+                [matNames]
+            );
+            const matIdByName = Object.fromEntries(
+                matItemsResult.rows.map(r => [r.name, Number(r.item_id)])
+            );
+
+            const allIds = [outputItemId, ...Object.values(matIdByName)];
+
+            const interval = range === '30d' ? '30 days' : range === '7d' ? '7 days' : '24 hours';
+            const isDaily  = range !== '24h';
+
+            const priceResult = await pool.query(
+                isDaily
+                    ? `SELECT item_id,
+                              DATE_TRUNC('day', hour) AS hour,
+                              MIN(min_unit_price)     AS price
+                       FROM ah_price_hourly
+                       WHERE item_id = ANY($1)
+                         AND hour >= NOW() - INTERVAL '${interval}'
+                       GROUP BY item_id, DATE_TRUNC('day', hour)
+                       ORDER BY item_id, hour`
+                    : `SELECT item_id, hour, min_unit_price AS price
+                       FROM ah_price_hourly
+                       WHERE item_id = ANY($1)
+                         AND hour >= NOW() - INTERVAL '${interval}'
+                       ORDER BY item_id, hour`,
+                [allIds]
+            );
+
+            // Group rows by item_id
+            const grouped = {};
+            for (const row of priceResult.rows) {
+                const id = Number(row.item_id);
+                if (!grouped[id]) grouped[id] = [];
+                grouped[id].push({ hour: row.hour, price: Number(row.price) });
+            }
+
+            res.json({
+                output: {
+                    item_id: outputItemId,
+                    name:    output_name,
+                    data:    grouped[outputItemId] || [],
+                },
+                materials: materials.map(m => ({
+                    name:    m.name,
+                    qty:     m.qty,
+                    item_id: matIdByName[m.name] ?? null,
+                    data:    matIdByName[m.name] ? (grouped[matIdByName[m.name]] || []) : [],
+                })),
+            });
+        } catch (err) {
+            console.error('[api] GET /api/prices/recipe failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/dashboard/alchemy-market
+    // All alchemy mats and recipe outputs with current price vs 7d MA.
+    // Returns items sorted by |deviation|; omits items with < 2 days of data.
+    // ----------------------------------------------------------------
+    app.get('/api/dashboard/alchemy-market', async (req, res) => {
+        try {
+            const tbcOnly = req.query.tbc === '1';
+            const catalogResult = await pool.query(
+                `SELECT output_item_id, materials FROM recipe_catalog WHERE profession = 'Alchemy'` +
+                (tbcOnly ? ` AND min_skill >= 275` : '')
+            );
+
+            const outputIds = [...new Set(catalogResult.rows.map(r => r.output_item_id).filter(Boolean))];
+            const matNames  = [...new Set(catalogResult.rows.flatMap(r =>
+                Array.isArray(r.materials) ? r.materials.map(m => m.name) : []
+            ))];
+
+            if (!outputIds.length && !matNames.length) return res.json([]);
+
+            const lastPrice = (col) =>
+                `(SELECT aph2.min_unit_price FROM ah_price_hourly aph2 WHERE aph2.item_id = ${col} ORDER BY aph2.hour DESC LIMIT 1)`;
+
+            const [outputResult, matResult] = await Promise.all([
+                outputIds.length ? pool.query(`
+                    SELECT i.item_id, i.name, 'output' AS role,
+                           ${lastPrice('i.item_id')}               AS current_price,
+                           AVG(aph.min_unit_price)::BIGINT          AS ma_7d,
+                           COUNT(DISTINCT DATE_TRUNC('day', aph.hour)) AS scan_days
+                    FROM items i
+                    JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                    WHERE i.item_id = ANY($1)
+                      AND i.name IS NOT NULL
+                      AND aph.hour > NOW() - INTERVAL '7 days'
+                    GROUP BY i.item_id, i.name
+                    HAVING COUNT(DISTINCT DATE_TRUNC('day', aph.hour)) >= 2`,
+                    [outputIds]) : { rows: [] },
+
+                matNames.length ? pool.query(`
+                    SELECT i.item_id, i.name, 'mat' AS role,
+                           ${lastPrice('i.item_id')}               AS current_price,
+                           AVG(aph.min_unit_price)::BIGINT          AS ma_7d,
+                           COUNT(DISTINCT DATE_TRUNC('day', aph.hour)) AS scan_days
+                    FROM items i
+                    JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                    WHERE i.name = ANY($1)
+                      AND aph.hour > NOW() - INTERVAL '7 days'
+                    GROUP BY i.item_id, i.name
+                    HAVING COUNT(DISTINCT DATE_TRUNC('day', aph.hour)) >= 2`,
+                    [matNames]) : { rows: [] },
+            ]);
+
+            // Deduplicate by item_id; outputs take precedence over mats
+            const seen = new Set();
+            const all  = [];
+            for (const r of [...outputResult.rows, ...matResult.rows]) {
+                if (seen.has(Number(r.item_id))) continue;
+                seen.add(Number(r.item_id));
+                const cur = Number(r.current_price);
+                const ma  = Number(r.ma_7d);
+                if (!cur || !ma) continue;
+                all.push({
+                    item_id:       Number(r.item_id),
+                    name:          r.name,
+                    role:          r.role,
+                    current_price: cur,
+                    ma_7d:         ma,
+                    pct_vs_ma:     Math.round(((cur - ma) / ma) * 100),
+                    scan_days:     Number(r.scan_days),
+                });
+            }
+
+            all.sort((a, b) => Math.abs(b.pct_vs_ma) - Math.abs(a.pct_vs_ma));
+            res.json(all);
+        } catch (err) {
+            console.error('[api] GET /api/dashboard/alchemy-market failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // PATCH /api/profile/alchemy-spec — quick update without full profile save
+    // Body: { alchemy_spec: 'Elixir Master' | 'Potion Master' }
+    // ----------------------------------------------------------------
+    app.patch('/api/profile/alchemy-spec', async (req, res) => {
+        const { alchemy_spec } = req.body;
+        const valid = ['Elixir Master', 'Potion Master', 'Transmutation Master'];
+        if (!valid.includes(alchemy_spec)) return res.status(400).json({ error: 'Invalid spec' });
+        try {
+            await pool.query(
+                `INSERT INTO profiles (user_id, alchemy_spec, updated_at)
+                 VALUES ('default', $1, NOW())
+                 ON CONFLICT (user_id) DO UPDATE SET
+                     alchemy_spec = EXCLUDED.alchemy_spec,
+                     updated_at   = NOW()`,
+                [alchemy_spec]
+            );
+            res.json({ alchemy_spec });
+        } catch (err) {
+            console.error('[api] PATCH /api/profile/alchemy-spec failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/sales/history?days=30&limit=30
+    // Top items by revenue from TSM personal sell history.
+    // ----------------------------------------------------------------
+    app.get('/api/sales/history', async (req, res) => {
+        const days  = Math.min(parseInt(req.query.days  || '30', 10), 365);
+        const limit = Math.min(parseInt(req.query.limit || '30', 10), 100);
+        try {
+            const result = await pool.query(
+                `SELECT
+                     sh.item_id,
+                     COALESCE(i.name, 'Item #' || sh.item_id) AS name,
+                     COUNT(*)                                   AS transactions,
+                     SUM(sh.quantity)                           AS total_qty,
+                     SUM(sh.quantity * sh.price_per_unit)       AS total_revenue,
+                     AVG(sh.price_per_unit)::BIGINT             AS avg_price,
+                     MAX(sh.sold_at)                            AS last_sold
+                 FROM sales_history sh
+                 LEFT JOIN items i ON i.item_id = sh.item_id
+                 WHERE sh.sold_at >= NOW() - INTERVAL '${days} days'
+                   AND sh.source IN ('Auction','Trade','COD')
+                 GROUP BY sh.item_id, i.name
+                 ORDER BY total_revenue DESC
+                 LIMIT $1`,
+                [limit]
+            );
+            res.json(result.rows.map(r => ({
+                item_id:       Number(r.item_id),
+                name:          r.name,
+                transactions:  Number(r.transactions),
+                total_qty:     Number(r.total_qty),
+                total_revenue: Number(r.total_revenue),
+                avg_price:     Number(r.avg_price),
+                last_sold:     r.last_sold,
+            })));
+        } catch (err) {
+            console.error('[api] GET /api/sales/history failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/sales/summary?days=30
+    // Aggregate stats: total revenue, total transactions, top item
+    // ----------------------------------------------------------------
+    app.get('/api/sales/summary', async (req, res) => {
+        const days = Math.min(parseInt(req.query.days || '30', 10), 365);
+        try {
+            const result = await pool.query(`
+                SELECT
+                    COUNT(*)                             AS total_transactions,
+                    SUM(quantity * price_per_unit)       AS total_revenue,
+                    SUM(quantity)                        AS total_qty
+                FROM sales_history
+                WHERE sold_at >= NOW() - INTERVAL '${days} days'
+                  AND source IN ('Auction','Trade','COD')
+            `);
+            res.json({
+                days,
+                total_transactions: Number(result.rows[0].total_transactions),
+                total_revenue:      Number(result.rows[0].total_revenue),
+                total_qty:          Number(result.rows[0].total_qty),
+            });
+        } catch (err) {
+            console.error('[api] GET /api/sales/summary failed:', err.message);
             res.status(500).json({ error: 'Database error' });
         }
     });
