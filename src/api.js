@@ -14,15 +14,16 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { pool } from './db.js';
 import { getConsumablesForSpec, getSpecRole } from './data/consumables.js';
+import { log, getRecentEvents } from './logger.js';
 
 // ES Modules don't have __dirname — this is the standard workaround
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
 // ── Alchemy Volume Strategy helpers ─────────────────────────────────────────
-const PROC_RATE      = 0.10;
-const PROC_EXTRA_AVG = 3.5;  // avg of 2–5 extra items
-const PROC_YIELD     = 1 + PROC_RATE * PROC_EXTRA_AVG; // 1.35
+const PROC_RATE      = 0.15;
+const PROC_EXTRA_AVG = 1.0;  // empirical: ~1.1–1.2× long-run multiplier → 1.15
+const PROC_YIELD     = 1 + PROC_RATE * PROC_EXTRA_AVG; // 1.15
 
 function classifyAlchemyType(profession, recipeName, outputName) {
     if (profession !== 'Alchemy') return null;
@@ -31,7 +32,8 @@ function classifyAlchemyType(profession, recipeName, outputName) {
     if (rn.startsWith('Transmute:')) return 'transmute';
     if (on.includes('Flask of') || on === 'Flask of Chromatic Wonder') return 'flask';
     if (on.startsWith('Elixir') || on.includes('Elixir')) return 'elixir';
-    if (on.includes('Potion') || on.includes('Cauldron')) return 'potion';
+    if (on.includes('Cauldron')) return 'other';  // cauldrons don't proc for any spec
+    if (on.includes('Potion')) return 'potion';
     return 'other'; // Alchemist stones, etc.
 }
 
@@ -227,16 +229,33 @@ export function createApp() {
                     [itemId]
                 );
             } else {
+                // Raw per-scan points — each Auctionator scan is a distinct data point.
+                // Shows intra-session price fluctuations at exact scan timestamps.
                 result = await pool.query(
-                    `SELECT hour, min_unit_price, total_supply
-                     FROM ah_price_hourly
+                    `SELECT
+                         scanned_at                AS hour,
+                         buyout / quantity         AS min_unit_price,
+                         quantity                  AS total_supply
+                     FROM ah_snapshots
                      WHERE item_id = $1
-                       AND hour >= NOW() - INTERVAL '24 hours'
-                     ORDER BY hour ASC`,
+                       AND scanned_at >= NOW() - INTERVAL '24 hours'
+                     ORDER BY scanned_at ASC`,
                     [itemId]
                 );
             }
-            res.json(result.rows);
+            const tsmResult = await pool.query(
+                `SELECT tsm_market_value, tsm_historical, tsm_synced_at FROM items WHERE item_id = $1`,
+                [itemId]
+            );
+            const tsmRow = tsmResult.rows[0] || {};
+            res.json({
+                rows: result.rows,
+                tsm: {
+                    market_value: tsmRow.tsm_market_value != null ? Number(tsmRow.tsm_market_value) : null,
+                    historical:   tsmRow.tsm_historical   != null ? Number(tsmRow.tsm_historical)   : null,
+                    synced_at:    tsmRow.tsm_synced_at    || null,
+                },
+            });
         } catch (err) {
             console.error('[api] GET /api/prices failed:', err.message);
             res.status(500).json({ error: 'Database error' });
@@ -367,11 +386,11 @@ export function createApp() {
             const result = await pool.query(
                 `SELECT * FROM profiles WHERE user_id = $1`, ['default']
             );
-            // Return empty profile if row doesn't exist yet
             res.json(result.rows[0] ?? {
                 user_id: 'default', display_name: 'My Profile',
                 class: null, spec: null, faction: null, race: null,
                 professions: [], profession_ranks: {}, reputations: {}, known_recipes: [],
+                linked_characters: [],
             });
         } catch (err) {
             console.error('[api] GET /api/profile failed:', err.message);
@@ -381,29 +400,60 @@ export function createApp() {
 
     // ----------------------------------------------------------------
     // PUT /api/profile — create or update the current user's profile
-    // Body: { class, spec, faction, race, professions[] }
+    // Body: { class, spec, faction, race, professions[], linked_characters[] }
     // ----------------------------------------------------------------
     app.put('/api/profile', async (req, res) => {
-        const { class: cls, spec, faction, race, professions, alchemy_spec } = req.body;
+        const { class: cls, spec, faction, race, professions, alchemy_spec, linked_characters } = req.body;
         try {
             const result = await pool.query(
-                `INSERT INTO profiles (user_id, class, spec, faction, race, professions, alchemy_spec, updated_at)
-                 VALUES ('default', $1, $2, $3, $4, $5, $6, NOW())
+                `INSERT INTO profiles (user_id, class, spec, faction, race, professions, alchemy_spec, linked_characters, updated_at)
+                 VALUES ('default', $1, $2, $3, $4, $5, $6, $7, NOW())
                  ON CONFLICT (user_id) DO UPDATE SET
-                     class        = EXCLUDED.class,
-                     spec         = EXCLUDED.spec,
-                     faction      = EXCLUDED.faction,
-                     race         = EXCLUDED.race,
-                     professions  = EXCLUDED.professions,
-                     alchemy_spec = EXCLUDED.alchemy_spec,
-                     updated_at   = NOW()
+                     class               = EXCLUDED.class,
+                     spec                = EXCLUDED.spec,
+                     faction             = EXCLUDED.faction,
+                     race                = EXCLUDED.race,
+                     professions         = EXCLUDED.professions,
+                     alchemy_spec        = EXCLUDED.alchemy_spec,
+                     linked_characters   = EXCLUDED.linked_characters,
+                     updated_at          = NOW()
                  RETURNING *`,
                 [cls || null, spec || null, faction || null, race || null,
-                 JSON.stringify(professions || []), alchemy_spec || 'Elixir Master']
+                 JSON.stringify(professions || []), alchemy_spec || 'Elixir Master',
+                 linked_characters || []]
             );
             res.json(result.rows[0]);
         } catch (err) {
             console.error('[api] PUT /api/profile failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // POST /api/profile/linked-characters — add or remove a linked alt
+    // Body: { action: 'add'|'remove', character_name: string }
+    // ----------------------------------------------------------------
+    app.post('/api/profile/linked-characters', async (req, res) => {
+        const { action, character_name } = req.body;
+        if (!character_name || !['add', 'remove'].includes(action)) {
+            return res.status(400).json({ error: 'action and character_name required' });
+        }
+        try {
+            const op = action === 'add'
+                ? `array_append(COALESCE(linked_characters, '{}'), $1::text)`
+                : `array_remove(COALESCE(linked_characters, '{}'), $1::text)`;
+            const result = await pool.query(
+                `INSERT INTO profiles (user_id, linked_characters, updated_at)
+                 VALUES ('default', ARRAY[$1::text], NOW())
+                 ON CONFLICT (user_id) DO UPDATE SET
+                     linked_characters = ${op},
+                     updated_at        = NOW()
+                 RETURNING linked_characters`,
+                [character_name]
+            );
+            res.json({ linked_characters: result.rows[0].linked_characters });
+        } catch (err) {
+            console.error('[api] POST /api/profile/linked-characters failed:', err.message);
             res.status(500).json({ error: 'Database error' });
         }
     });
@@ -692,13 +742,18 @@ export function createApp() {
             const knownRecipes = Array.isArray(profile.known_recipes)
                 ? profile.known_recipes
                 : JSON.parse(profile.known_recipes || '[]');
-            const knownNames = new Set(knownRecipes.map(r => r.output_name));
-            const hasKnownRecipes = knownNames.size > 0;
+
+            // Group by profession so we can fall back per-profession.
+            // If the addon synced Cooking but not Alchemy, show all Alchemy recipes
+            // (skill-rank filtered) while still filtering Cooking to only known ones.
+            const knownByProfession = {};
+            for (const r of knownRecipes) {
+                if (!knownByProfession[r.profession]) knownByProfession[r.profession] = new Set();
+                knownByProfession[r.profession].add(r.output_name);
+            }
 
             // Query recipe_catalog for all recipes belonging to this character's
             // professions. Ingredients come from CraftLib DB2 data (accurate).
-            // Filter: if the addon has synced known recipes, show only those;
-            // otherwise fall back to everything learnable at the character's skill rank.
             const profRanks = profile.profession_ranks || {};
             const catalogResult = await pool.query(
                 `SELECT recipe_id, recipe_name, profession, output_item_id,
@@ -714,7 +769,10 @@ export function createApp() {
                 // When professions are set manually via Settings, ranks default to 0
                 // and we show all recipes rather than filtering everything out.
                 if (charRank > 0 && r.min_skill > charRank) return false;
-                if (hasKnownRecipes) return knownNames.has(r.recipe_name);
+                // If addon has synced recipes for THIS profession, filter by those.
+                // If not yet synced for this profession, show all skill-learnable recipes.
+                const known = knownByProfession[r.profession];
+                if (known) return known.has(r.recipe_name);
                 return true;
             });
 
@@ -730,57 +788,110 @@ export function createApp() {
                 `(SELECT aph2.min_unit_price FROM ah_price_hourly aph2
                   WHERE aph2.item_id = ${col} ORDER BY aph2.hour DESC LIMIT 1)`;
 
-            const [outputPrices, matPrices] = await Promise.all([
+            // freshPriceSubquery: most recent price within 7 days (returns null if stale/absent)
+            const freshPriceSubquery = (col) =>
+                `(SELECT aph2.min_unit_price FROM ah_price_hourly aph2
+                  WHERE aph2.item_id = ${col}
+                    AND aph2.hour > NOW() - INTERVAL '7 days'
+                  ORDER BY aph2.hour DESC LIMIT 1)`;
+
+            const [outputPrices, matPrices, salesTodayResult, ahSupplyResult, lastScannedResult] = await Promise.all([
                 outputItemIds.length ? pool.query(
                     `SELECT i.item_id, i.name,
-                            AVG(aph.min_unit_price) AS avg_price,
-                            ${priceSubquery('i.item_id')} AS current_price,
-                            i.tsm_num_auctions, i.tsm_market_value,
+                            AVG(aph.min_unit_price)           AS avg_price,
+                            ${freshPriceSubquery('i.item_id')} AS scan_current_price,
+                            i.tsm_num_auctions, i.tsm_market_value, i.tsm_synced_at,
                             i.region_sold_per_day, i.region_sale_pct, i.region_market_value
                      FROM items i
-                     JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                     LEFT JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                                                  AND aph.hour > NOW() - INTERVAL '7 days'
                      WHERE i.item_id = ANY($1)
-                       AND aph.hour > NOW() - INTERVAL '7 days'
-                     GROUP BY i.item_id, i.name, i.tsm_num_auctions, i.tsm_market_value,
+                     GROUP BY i.item_id, i.name, i.tsm_num_auctions, i.tsm_market_value, i.tsm_synced_at,
                               i.region_sold_per_day, i.region_sale_pct, i.region_market_value`,
                     [outputItemIds]
                 ) : { rows: [] },
                 matNames.length ? pool.query(
                     `SELECT i.name, i.item_id,
-                            AVG(aph.min_unit_price) AS avg_price,
-                            ${priceSubquery('i.item_id')} AS current_price
+                            AVG(aph.min_unit_price)           AS avg_price,
+                            ${freshPriceSubquery('i.item_id')} AS scan_current_price,
+                            i.tsm_market_value
                      FROM items i
-                     JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                     LEFT JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                                                  AND aph.hour > NOW() - INTERVAL '7 days'
                      WHERE i.name = ANY($1)
-                       AND aph.hour > NOW() - INTERVAL '7 days'
-                     GROUP BY i.name, i.item_id`,
+                     GROUP BY i.name, i.item_id, i.tsm_market_value`,
                     [matNames]
+                ) : { rows: [] },
+                pool.query(
+                    `SELECT item_id, SUM(quantity)::INT AS qty_sold
+                     FROM sales_history
+                     WHERE sold_at >= CURRENT_DATE
+                       AND source IN ('Auction','Trade','COD')
+                     GROUP BY item_id`
+                ),
+                // Current AH supply from our own Auctionator scans (realm-specific).
+                // Sum of all quantities listed in the last 24 hours per output item.
+                outputItemIds.length ? pool.query(
+                    `SELECT item_id, SUM(quantity)::INT AS ah_qty
+                     FROM ah_snapshots
+                     WHERE item_id = ANY($1)
+                       AND scanned_at >= (SELECT MAX(scanned_at) - INTERVAL '10 minutes' FROM ah_snapshots)
+                     GROUP BY item_id`,
+                    [outputItemIds]
+                ) : { rows: [] },
+                // Most recent scan timestamp per output item — used for "recently scanned" sort
+                outputItemIds.length ? pool.query(
+                    `SELECT item_id, MAX(scanned_at) AS last_scanned_at
+                     FROM ah_snapshots
+                     WHERE item_id = ANY($1)
+                     GROUP BY item_id`,
+                    [outputItemIds]
                 ) : { rows: [] },
             ]);
 
             // priceById: for output price lookups (keyed by item_id)
+            // current_price prefers a fresh AH scan; falls back to TSM market value.
             const priceById = Object.fromEntries(
-                outputPrices.rows.map(r => [r.item_id, {
-                    item_id:       r.item_id,
-                    name:          r.name,
-                    avg_price:     Number(r.avg_price),
-                    current_price: r.current_price != null ? Number(r.current_price) : null,
-                    market_context: {
-                        tsm_num_auctions:    r.tsm_num_auctions    != null ? Number(r.tsm_num_auctions)    : null,
-                        tsm_market_value:    r.tsm_market_value    != null ? Number(r.tsm_market_value)    : null,
-                        region_sold_per_day: r.region_sold_per_day != null ? Number(r.region_sold_per_day) : null,
-                        region_sale_pct:     r.region_sale_pct     != null ? Number(r.region_sale_pct)     : null,
-                        region_market_value: r.region_market_value != null ? Number(r.region_market_value) : null,
-                    },
-                }])
+                outputPrices.rows.map(r => {
+                    const scanPrice = r.scan_current_price != null ? Number(r.scan_current_price) : null;
+                    const tsmPrice  = r.tsm_market_value   != null ? Number(r.tsm_market_value)   : null;
+                    return [r.item_id, {
+                        item_id:       r.item_id,
+                        name:          r.name,
+                        avg_price:     r.avg_price ? Number(r.avg_price) : null,
+                        current_price: scanPrice ?? tsmPrice,
+                        price_source:  scanPrice != null ? 'scan' : (tsmPrice != null ? 'tsm' : null),
+                        market_context: {
+                            tsm_num_auctions:    r.tsm_num_auctions    != null ? Number(r.tsm_num_auctions)    : null,
+                            tsm_market_value:    tsmPrice,
+                            region_sold_per_day: r.region_sold_per_day != null ? Number(r.region_sold_per_day) : null,
+                            region_sale_pct:     r.region_sale_pct     != null ? Number(r.region_sale_pct)     : null,
+                            region_market_value: r.region_market_value != null ? Number(r.region_market_value) : null,
+                        },
+                    }];
+                })
             );
+            // ahSupplyById: total AH quantity from last Auctionator scan (realm-specific)
+            const ahSupplyById = Object.fromEntries(
+                ahSupplyResult.rows.map(r => [Number(r.item_id), Number(r.ah_qty)])
+            );
+            const lastScannedById = Object.fromEntries(
+                lastScannedResult.rows.map(r => [Number(r.item_id), r.last_scanned_at])
+            );
+
             // priceMap: for material price lookups (keyed by name)
+            // current_price prefers a fresh AH scan; falls back to TSM market value.
             const priceMap = Object.fromEntries(
-                matPrices.rows.map(r => [r.name, {
-                    item_id:       r.item_id,
-                    avg_price:     Number(r.avg_price),
-                    current_price: r.current_price != null ? Number(r.current_price) : null,
-                }])
+                matPrices.rows.map(r => {
+                    const scanPrice = r.scan_current_price != null ? Number(r.scan_current_price) : null;
+                    const tsmPrice  = r.tsm_market_value   != null ? Number(r.tsm_market_value)   : null;
+                    return [r.name, {
+                        item_id:       r.item_id,
+                        avg_price:     r.avg_price ? Number(r.avg_price) : null,
+                        current_price: scanPrice ?? tsmPrice,
+                        price_source:  scanPrice != null ? 'scan' : (tsmPrice != null ? 'tsm' : null),
+                    }];
+                })
             );
 
             const VENDOR_ITEMS = new Set(Object.keys(VENDOR_BASE_COSTS));
@@ -839,13 +950,46 @@ export function createApp() {
                 const break_even_safe = profitKnown && net_proceeds > 0
                     ? material_cost < net_proceeds * 0.1
                     : false;
-                // Daily capacity: transmutes are hard-capped at 1/day (24h cooldown).
-                // For everything else, use TSM regional velocity as a soft ceiling.
-                const region_spd      = ctx.region_sold_per_day != null ? Number(ctx.region_sold_per_day) : null;
-                const daily_cap       = alchemy_type === 'transmute'
-                    ? 1
-                    : region_spd != null ? Math.max(1, Math.round(region_spd)) : null;
+                // Market-aware craft quantity — two-stage model:
+                //
+                // Stage 1 — Share model: you won't capture 100% of regional velocity.
+                // Share scales with sell-rate (region_sale_pct, stored 0–100):
+                //   high sell-rate = undersupplied, fewer rivals → claim more (max 35%)
+                //   low  sell-rate = flooded market, many rivals → claim less  (min  5%)
+                //   no data                                                   → default 10%
+                //
+                // Stage 2 — Supply gate: if our own AH scan shows >2 days of your
+                // recommended output already listed, hold off (daily_cap = 0).
+                // days_of_supply = ah_qty_on_AH / daily_cap_from_stage1
+                const region_spd = ctx.region_sold_per_day != null ? Number(ctx.region_sold_per_day) : null;
 
+                let daily_cap, days_of_supply;
+                if (alchemy_type === 'transmute') {
+                    daily_cap      = 1;
+                    days_of_supply = null;
+                } else if (region_spd == null) {
+                    daily_cap      = null;
+                    days_of_supply = null;
+                } else {
+                    // Stage 1: share-adjusted quantity
+                    const sellPct   = ctx.region_sale_pct != null ? Number(ctx.region_sale_pct) : null;
+                    // region_sale_pct is stored as a fraction (0–1), not a percentage.
+                    // Divide by 2 so a 60% sell rate → 0.30 share (not 0.003).
+                    const share     = sellPct != null
+                        ? Math.min(0.35, Math.max(0.05, sellPct / 2))
+                        : 0.10;
+                    const shareCap  = Math.max(1, Math.ceil(region_spd * share));
+
+                    // Stage 2: supply gate from our Auctionator scan data (realm-specific)
+                    const ahQty     = recipe.output_item_id ? (ahSupplyById[recipe.output_item_id] ?? null) : null;
+                    days_of_supply  = ahQty != null ? Math.round(10 * ahQty / shareCap) / 10 : null;
+
+                    daily_cap       = (days_of_supply != null && days_of_supply > 2.0)
+                        ? 0       // AH already has >2 days of your share posted — hold off
+                        : shareCap;
+                }
+
+                const anyMatTsm = recipe.materials.some(m => priceMap[m.name]?.price_source === 'tsm');
                 return {
                     profession:          recipe.profession,
                     output_name:         recipe.output_name,
@@ -863,24 +1007,28 @@ export function createApp() {
                     expected_margin,
                     break_even_safe,
                     daily_cap,
+                    days_of_supply,
                     // TSM market intelligence
                     tsm_num_auctions:    ctx.tsm_num_auctions    ?? null,
                     region_sold_per_day: region_spd,
                     region_sale_pct:     ctx.region_sale_pct     ?? null,
                     region_market_value: ctx.region_market_value ?? null,
                     tsm_market_value:    ctx.tsm_market_value    ?? null,
+                    last_scanned_at:     recipe.output_item_id ? (lastScannedById[recipe.output_item_id] ?? null) : null,
+                    // Price sourcing: 'scan' (fresh AH data) or 'tsm' (TSM estimate)
+                    price_source:        output.price_source,
+                    uses_tsm:            output.price_source === 'tsm' || anyMatTsm,
                 };
             });
 
-            // Sort by proc-adjusted expected gold/day.
-            // For alchemy, use expected_margin (incorporates proc yield) × velocity.
-            // Items with no velocity data fall back to raw margin ranking.
-            // Unknowns (null profit) always go last.
+            // Sort: profitable + craftable first (by margin × qty), then stocked (daily_cap=0),
+            // then velocity-unknown, then profit-unknown last.
             const expectedGoldPerDay = (r) => {
                 if (r.profit == null) return -Infinity;
+                if (r.daily_cap === 0) return 0;   // stocked: above unknowns, below craftable
                 const margin = r.expected_margin ?? r.profit;
-                const vel    = r.region_sold_per_day;
-                return vel != null ? margin * vel : margin * 0.5;
+                const cap    = r.daily_cap;
+                return cap != null ? margin * cap : margin * 0.5;
             };
             results.sort((a, b) => expectedGoldPerDay(b) - expectedGoldPerDay(a));
 
@@ -941,7 +1089,11 @@ export function createApp() {
                 }))
                 .sort((a, b) => Math.abs(b.gap_pct) - Math.abs(a.gap_pct));
 
-            res.json({ items: results, craft_vs_sell, alchemy_spec: alchemySpec });
+            const sales_today = Object.fromEntries(
+                salesTodayResult.rows.map(r => [Number(r.item_id), Number(r.qty_sold)])
+            );
+
+            res.json({ items: results, craft_vs_sell, alchemy_spec: alchemySpec, sales_today });
         } catch (err) {
             console.error('[api] GET /api/dashboard/crafting failed:', err.message);
             res.status(500).json({ error: 'Database error' });
@@ -985,10 +1137,17 @@ export function createApp() {
                 `(SELECT aph2.min_unit_price FROM ah_price_hourly aph2
                   WHERE aph2.item_id = ${col} ORDER BY aph2.hour DESC LIMIT 1)`;
 
+            const freshPriceSubqueryFs = (col) =>
+                `(SELECT aph2.min_unit_price FROM ah_price_hourly aph2
+                  WHERE aph2.item_id = ${col}
+                    AND aph2.hour > NOW() - INTERVAL '7 days'
+                  ORDER BY aph2.hour DESC LIMIT 1)`;
+
             const [outputPrices, matPrices] = await Promise.all([
                 outputItemIds.length ? pool.query(
                     `SELECT i.item_id, i.name,
-                            ${priceSubquery('i.item_id')} AS current_price,
+                            ${freshPriceSubqueryFs('i.item_id')} AS scan_current_price,
+                            i.tsm_market_value,
                             i.region_sold_per_day, i.region_sale_pct
                      FROM items i
                      WHERE i.item_id = ANY($1)`,
@@ -996,19 +1155,36 @@ export function createApp() {
                 ) : { rows: [] },
                 matNames.length ? pool.query(
                     `SELECT i.name, i.item_id,
-                            AVG(aph.min_unit_price) AS avg_price,
-                            ${priceSubquery('i.item_id')} AS current_price
+                            AVG(aph.min_unit_price)               AS avg_price,
+                            ${freshPriceSubqueryFs('i.item_id')}   AS scan_current_price,
+                            i.tsm_market_value
                      FROM items i
-                     JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                     LEFT JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                                                  AND aph.hour > NOW() - INTERVAL '7 days'
                      WHERE i.name = ANY($1)
-                       AND aph.hour > NOW() - INTERVAL '7 days'
-                     GROUP BY i.name, i.item_id`,
+                     GROUP BY i.name, i.item_id, i.tsm_market_value`,
                     [matNames]
                 ) : { rows: [] },
             ]);
 
-            const priceById = Object.fromEntries(outputPrices.rows.map(r => [r.item_id, r]));
-            const priceMap  = Object.fromEntries(matPrices.rows.map(r => [r.name, r]));
+            const priceById = Object.fromEntries(outputPrices.rows.map(r => {
+                const scanPrice = r.scan_current_price != null ? Number(r.scan_current_price) : null;
+                const tsmPrice  = r.tsm_market_value   != null ? Number(r.tsm_market_value)   : null;
+                return [r.item_id, {
+                    ...r,
+                    current_price: scanPrice ?? tsmPrice,
+                    price_source:  scanPrice != null ? 'scan' : (tsmPrice != null ? 'tsm' : null),
+                }];
+            }));
+            const priceMap = Object.fromEntries(matPrices.rows.map(r => {
+                const scanPrice = r.scan_current_price != null ? Number(r.scan_current_price) : null;
+                const tsmPrice  = r.tsm_market_value   != null ? Number(r.tsm_market_value)   : null;
+                return [r.name, {
+                    ...r,
+                    current_price: scanPrice ?? tsmPrice,
+                    price_source:  scanPrice != null ? 'scan' : (tsmPrice != null ? 'tsm' : null),
+                }];
+            }));
             const VENDOR_ITEMS = new Set(Object.keys(VENDOR_BASE_COSTS));
 
             const items = catalogResult.rows.map(recipe => {
@@ -1048,6 +1224,8 @@ export function createApp() {
                     expected_margin,
                     region_sold_per_day: region_spd,
                     region_sale_pct:     output?.region_sale_pct != null ? Number(output.region_sale_pct) : null,
+                    price_source:        output?.price_source ?? null,
+                    uses_tsm:            output?.price_source === 'tsm' || recipe.materials.some(m => priceMap[m.name]?.price_source === 'tsm'),
                 };
             });
 
@@ -1255,17 +1433,21 @@ export function createApp() {
     });
 
     // ----------------------------------------------------------------
-    // GET /api/sales/history?days=30&limit=30
-    // Top items by revenue from TSM personal sell history.
+    // GET /api/sales/history?days=30&limit=30&character=Name
+    // Top items by revenue. Optional ?character= filters to one character;
+    // omitting it returns combined data across all characters.
     // ----------------------------------------------------------------
     app.get('/api/sales/history', async (req, res) => {
-        const days  = Math.min(parseInt(req.query.days  || '30', 10), 365);
-        const limit = Math.min(parseInt(req.query.limit || '30', 10), 100);
+        const days      = Math.min(parseInt(req.query.days  || '30', 10), 365);
+        const limit     = Math.min(parseInt(req.query.limit || '30', 10), 100);
+        const character = req.query.character || null;
         try {
+            const params = character ? [limit, character] : [limit];
+            const charFilter = character ? `AND sh.character_name = $2` : '';
             const result = await pool.query(
                 `SELECT
                      sh.item_id,
-                     COALESCE(i.name, 'Item #' || sh.item_id) AS name,
+                     COALESCE(i.name, rc.output_name, 'Item #' || sh.item_id) AS name,
                      COUNT(*)                                   AS transactions,
                      SUM(sh.quantity)                           AS total_qty,
                      SUM(sh.quantity * sh.price_per_unit)       AS total_revenue,
@@ -1273,12 +1455,17 @@ export function createApp() {
                      MAX(sh.sold_at)                            AS last_sold
                  FROM sales_history sh
                  LEFT JOIN items i ON i.item_id = sh.item_id
+                 LEFT JOIN LATERAL (
+                     SELECT output_name FROM recipe_catalog
+                     WHERE output_item_id = sh.item_id LIMIT 1
+                 ) rc ON true
                  WHERE sh.sold_at >= NOW() - INTERVAL '${days} days'
                    AND sh.source IN ('Auction','Trade','COD')
-                 GROUP BY sh.item_id, i.name
+                   ${charFilter}
+                 GROUP BY sh.item_id, i.name, rc.output_name
                  ORDER BY total_revenue DESC
                  LIMIT $1`,
-                [limit]
+                params
             );
             res.json(result.rows.map(r => ({
                 item_id:       Number(r.item_id),
@@ -1296,11 +1483,109 @@ export function createApp() {
     });
 
     // ----------------------------------------------------------------
+    // GET /api/sales/characters
+    // Distinct character names that appear in sales or purchase history.
+    // Used to populate the character filter dropdown.
+    // ----------------------------------------------------------------
+    app.get('/api/sales/characters', async (_req, res) => {
+        try {
+            const result = await pool.query(`
+                SELECT DISTINCT character_name
+                FROM (
+                    SELECT character_name FROM sales_history    WHERE character_name IS NOT NULL
+                    UNION
+                    SELECT character_name FROM purchase_history WHERE character_name IS NOT NULL
+                ) t
+                ORDER BY character_name
+            `);
+            res.json(result.rows.map(r => r.character_name));
+        } catch (err) {
+            console.error('[api] GET /api/sales/characters failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/sales/pnl?days=30
+    // Daily revenue vs expenses vs net profit, for P&L chart.
+    // ----------------------------------------------------------------
+    app.get('/api/sales/pnl', async (req, res) => {
+        const days      = Math.min(parseInt(req.query.days || '30', 10), 365);
+        const character = req.query.character || null;
+        const charCond  = character ? `AND character_name = '${character.replace(/'/g, "''")}'` : '';
+        try {
+            const result = await pool.query(`
+                WITH daily_sales AS (
+                    SELECT DATE_TRUNC('day', sold_at AT TIME ZONE 'America/New_York') AS day,
+                           SUM(quantity * price_per_unit)::BIGINT                      AS revenue
+                    FROM sales_history
+                    WHERE sold_at >= NOW() - INTERVAL '${days} days'
+                      AND source IN ('Auction','Trade','COD')
+                      ${charCond}
+                    GROUP BY 1
+                ),
+                daily_buys AS (
+                    SELECT DATE_TRUNC('day', purchased_at AT TIME ZONE 'America/New_York') AS day,
+                           SUM(quantity * price_per_unit)::BIGINT                           AS expenses
+                    FROM purchase_history
+                    WHERE purchased_at >= NOW() - INTERVAL '${days} days'
+                      AND source IN ('Auction','Trade','COD')
+                      ${charCond}
+                    GROUP BY 1
+                )
+                SELECT
+                    COALESCE(s.day, b.day)         AS day,
+                    COALESCE(s.revenue,  0)         AS revenue,
+                    COALESCE(b.expenses, 0)         AS expenses,
+                    COALESCE(s.revenue, 0) - COALESCE(b.expenses, 0) AS net_profit
+                FROM daily_sales s
+                FULL OUTER JOIN daily_buys b ON b.day = s.day
+                ORDER BY day ASC
+            `);
+            res.json(result.rows.map(r => ({
+                day:        r.day,
+                revenue:    Number(r.revenue),
+                expenses:   Number(r.expenses),
+                net_profit: Number(r.net_profit),
+            })));
+        } catch (err) {
+            console.error('[api] GET /api/sales/pnl failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/sales/spend-by-item?days=30
+    // Total copper spent per item in purchase_history for P&L cross-ref.
+    // ----------------------------------------------------------------
+    app.get('/api/sales/spend-by-item', async (req, res) => {
+        const days = Math.min(parseInt(req.query.days || '30', 10), 365);
+        try {
+            const result = await pool.query(`
+                SELECT item_id, SUM(quantity * price_per_unit)::BIGINT AS total_spent
+                FROM purchase_history
+                WHERE purchased_at >= NOW() - INTERVAL '${days} days'
+                  AND source IN ('Auction','Trade','COD')
+                GROUP BY item_id
+            `);
+            res.json(result.rows.map(r => ({
+                item_id:     Number(r.item_id),
+                total_spent: Number(r.total_spent),
+            })));
+        } catch (err) {
+            console.error('[api] GET /api/sales/spend-by-item failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
     // GET /api/sales/summary?days=30
     // Aggregate stats: total revenue, total transactions, top item
     // ----------------------------------------------------------------
     app.get('/api/sales/summary', async (req, res) => {
-        const days = Math.min(parseInt(req.query.days || '30', 10), 365);
+        const days      = Math.min(parseInt(req.query.days || '30', 10), 365);
+        const character = req.query.character || null;
+        const charCond  = character ? `AND character_name = '${character.replace(/'/g, "''")}'` : '';
         try {
             const result = await pool.query(`
                 SELECT
@@ -1310,6 +1595,7 @@ export function createApp() {
                 FROM sales_history
                 WHERE sold_at >= NOW() - INTERVAL '${days} days'
                   AND source IN ('Auction','Trade','COD')
+                  ${charCond}
             `);
             res.json({
                 days,
@@ -1319,6 +1605,331 @@ export function createApp() {
             });
         } catch (err) {
             console.error('[api] GET /api/sales/summary failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/dashboard/shopping-list
+    // Aggregate mats for all currently profitable, non-stocked recipes.
+    // Returns: { items: [{ name, item_id, total_qty, price, total_cost, recipes[] }] }
+    // ----------------------------------------------------------------
+    app.get('/api/dashboard/shopping-list', async (_req, res) => {
+        try {
+            const profileResult = await pool.query(
+                `SELECT professions, profession_ranks, reputations, known_recipes, alchemy_spec FROM profiles WHERE user_id = $1`,
+                ['default']
+            );
+            const profile = profileResult.rows[0];
+            if (!profile) return res.json({ items: [] });
+
+            const profs = Array.isArray(profile.professions)
+                ? profile.professions
+                : JSON.parse(profile.professions || '[]');
+            if (!profs.length) return res.json({ items: [] });
+
+            const alchemySpec = profile.alchemy_spec || 'Elixir Master';
+            const reps        = profile.reputations || {};
+            const bestStanding = Math.max(4, ...VENDOR_FACTIONS.map(f => reps[f] ?? 4));
+            const discount     = REP_DISCOUNTS[Math.min(bestStanding, 8)] ?? 0;
+            const vendorCost   = (name) => {
+                const base = VENDOR_BASE_COSTS[name];
+                return base != null ? Math.round(base * (1 - discount)) : 0;
+            };
+
+            const knownRecipes = Array.isArray(profile.known_recipes)
+                ? profile.known_recipes
+                : JSON.parse(profile.known_recipes || '[]');
+            const knownNames     = new Set(knownRecipes.map(r => r.output_name));
+            const hasKnownRecipes = knownNames.size > 0;
+            const profRanks      = profile.profession_ranks || {};
+
+            const catalogResult = await pool.query(
+                `SELECT recipe_id, recipe_name, profession, output_item_id,
+                        output_name, output_qty AS num_made, min_skill, materials
+                 FROM recipe_catalog
+                 WHERE profession = ANY($1)`,
+                [profs]
+            );
+            const myRecipes = catalogResult.rows.filter(r => {
+                const charRank = profRanks[r.profession] ?? 0;
+                if (charRank > 0 && r.min_skill > charRank) return false;
+                if (hasKnownRecipes) return knownNames.has(r.recipe_name);
+                return true;
+            });
+            if (!myRecipes.length) return res.json({ items: [] });
+
+            const outputItemIds = [...new Set(myRecipes.map(r => r.output_item_id).filter(Boolean))];
+            const matNames      = [...new Set(myRecipes.flatMap(r => r.materials.map(m => m.name)))];
+            const VENDOR_ITEMS  = new Set(Object.keys(VENDOR_BASE_COSTS));
+
+            const freshPriceSubqueryCp = (col) =>
+                `(SELECT aph2.min_unit_price FROM ah_price_hourly aph2
+                  WHERE aph2.item_id = ${col}
+                    AND aph2.hour > NOW() - INTERVAL '7 days'
+                  ORDER BY aph2.hour DESC LIMIT 1)`;
+
+            const [outputPrices, matPrices, ahSupplyResult] = await Promise.all([
+                outputItemIds.length ? pool.query(
+                    `SELECT i.item_id, i.name,
+                            ${freshPriceSubqueryCp('i.item_id')} AS scan_current_price,
+                            i.tsm_market_value,
+                            i.region_sold_per_day, i.region_sale_pct
+                     FROM items i
+                     WHERE i.item_id = ANY($1)`,
+                    [outputItemIds]
+                ) : { rows: [] },
+                matNames.length ? pool.query(
+                    `SELECT i.name, i.item_id,
+                            AVG(aph.min_unit_price)                 AS avg_price,
+                            ${freshPriceSubqueryCp('i.item_id')}     AS scan_current_price,
+                            i.tsm_market_value
+                     FROM items i
+                     LEFT JOIN ah_price_hourly aph ON aph.item_id = i.item_id
+                                                  AND aph.hour > NOW() - INTERVAL '7 days'
+                     WHERE i.name = ANY($1)
+                     GROUP BY i.name, i.item_id, i.tsm_market_value`,
+                    [matNames]
+                ) : { rows: [] },
+                outputItemIds.length ? pool.query(
+                    `SELECT item_id, SUM(quantity)::INT AS ah_qty
+                     FROM ah_snapshots
+                     WHERE item_id = ANY($1)
+                       AND scanned_at >= (SELECT MAX(scanned_at) - INTERVAL '10 minutes' FROM ah_snapshots)
+                     GROUP BY item_id`,
+                    [outputItemIds]
+                ) : { rows: [] },
+            ]);
+
+            const priceById = Object.fromEntries(
+                outputPrices.rows.map(r => {
+                    const scanPrice = r.scan_current_price != null ? Number(r.scan_current_price) : null;
+                    const tsmPrice  = r.tsm_market_value   != null ? Number(r.tsm_market_value)   : null;
+                    return [Number(r.item_id), {
+                        current_price:       scanPrice ?? tsmPrice,
+                        region_sold_per_day: r.region_sold_per_day != null ? Number(r.region_sold_per_day) : null,
+                        region_sale_pct:     r.region_sale_pct     != null ? Number(r.region_sale_pct)     : null,
+                    }];
+                })
+            );
+            const ahSupplyById = Object.fromEntries(
+                ahSupplyResult.rows.map(r => [Number(r.item_id), Number(r.ah_qty)])
+            );
+            const priceMap = Object.fromEntries(
+                matPrices.rows.map(r => {
+                    const scanPrice = r.scan_current_price != null ? Number(r.scan_current_price) : null;
+                    const tsmPrice  = r.tsm_market_value   != null ? Number(r.tsm_market_value)   : null;
+                    return [r.name, {
+                        item_id:       Number(r.item_id),
+                        avg_price:     r.avg_price ? Number(r.avg_price) : null,
+                        current_price: scanPrice ?? tsmPrice,
+                    }];
+                })
+            );
+
+            // Aggregate: mat name → { item_id, total_qty, price, total_cost, recipes[] }
+            const matTotals = new Map();
+
+            for (const recipe of myRecipes) {
+                const outData = recipe.output_item_id ? priceById[recipe.output_item_id] : null;
+                if (!outData?.current_price) continue;
+
+                // Profitability check
+                const num_made    = recipe.num_made ?? 1;
+                const outPrice    = outData.current_price * num_made;
+                const net_proceeds = Math.round(outPrice * (1 - AH_CUT));
+                let matCost = 0;
+                let incomplete = false;
+                for (const mat of recipe.materials) {
+                    const p = priceMap[mat.name];
+                    const mp = p?.current_price ?? p?.avg_price ?? null;
+                    if (mp != null)                 matCost += mat.qty * mp;
+                    else if (VENDOR_ITEMS.has(mat.name)) matCost += mat.qty * vendorCost(mat.name);
+                    else                            incomplete = true;
+                }
+                if (incomplete || net_proceeds - matCost <= 0) continue;
+
+                // Supply gate + daily_cap (same two-stage model as /api/dashboard/crafting)
+                const alchemy_type = classifyAlchemyType(recipe.profession, recipe.recipe_name, recipe.output_name);
+                let daily_cap;
+                if (alchemy_type === 'transmute') {
+                    daily_cap = 1;
+                } else if (outData.region_sold_per_day == null) {
+                    daily_cap = null;
+                } else {
+                    const sellPct  = outData.region_sale_pct ?? null;
+                    // region_sale_pct is stored as a fraction (0–1). Divide by 2:
+                    // 60% sell rate → 0.30 share of regional daily velocity.
+                    const share    = sellPct != null
+                        ? Math.min(0.35, Math.max(0.05, sellPct / 2))
+                        : 0.10;
+                    const shareCap = Math.max(1, Math.ceil(outData.region_sold_per_day * share));
+                    const ahQty    = recipe.output_item_id ? (ahSupplyById[recipe.output_item_id] ?? null) : null;
+                    const daysSupply = ahQty != null ? ahQty / shareCap : null;
+                    daily_cap = (daysSupply != null && daysSupply > 2.0) ? 0 : shareCap;
+                }
+                if (!daily_cap) continue;
+
+                // Accumulate mats
+                for (const mat of recipe.materials) {
+                    const p    = priceMap[mat.name];
+                    const price = p?.current_price ?? p?.avg_price ?? (VENDOR_ITEMS.has(mat.name) ? vendorCost(mat.name) : 0);
+                    if (!matTotals.has(mat.name)) {
+                        matTotals.set(mat.name, {
+                            name:      mat.name,
+                            item_id:   p?.item_id ?? null,
+                            total_qty: 0,
+                            price,
+                            recipes:   [],
+                        });
+                    }
+                    const entry = matTotals.get(mat.name);
+                    entry.total_qty += mat.qty * daily_cap;
+                    if (!entry.recipes.includes(recipe.output_name)) entry.recipes.push(recipe.output_name);
+                }
+            }
+
+            const items = [...matTotals.values()]
+                .map(m => ({ ...m, total_cost: m.total_qty * m.price }))
+                .sort((a, b) => b.total_cost - a.total_cost);
+
+            res.json({ items });
+        } catch (err) {
+            console.error('[api] GET /api/dashboard/shopping-list failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/production/log?days=30&character=Name
+    // Recent craft events with material cost basis.
+    // ----------------------------------------------------------------
+    app.get('/api/production/log', async (req, res) => {
+        const days      = Math.min(parseInt(req.query.days || '30', 10), 365);
+        const character = req.query.character || null;
+        const charCond  = character ? `AND character_name = '${character.replace(/'/g, "''")}'` : '';
+        try {
+            const result = await pool.query(`
+                SELECT pl.id, pl.character_name, pl.item_id, pl.item_name,
+                       pl.quantity, pl.crafted_at, pl.cost_per_unit, pl.total_cost,
+                       pl.mats_snapshot,
+                       i.name AS resolved_name
+                FROM production_log pl
+                LEFT JOIN items i ON i.item_id = pl.item_id
+                WHERE pl.crafted_at >= NOW() - INTERVAL '${days} days'
+                  ${charCond}
+                ORDER BY pl.crafted_at DESC
+                LIMIT 500
+            `);
+            res.json(result.rows.map(r => ({
+                id:             Number(r.id),
+                character_name: r.character_name,
+                item_id:        r.item_id,
+                item_name:      r.resolved_name || r.item_name,
+                quantity:       r.quantity,
+                crafted_at:     r.crafted_at,
+                cost_per_unit:  Number(r.cost_per_unit),
+                total_cost:     Number(r.total_cost),
+                mats:           r.mats_snapshot || [],
+            })));
+        } catch (err) {
+            console.error('[api] GET /api/production/log failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/production/summary
+    // Per-item cost basis aggregated across all crafts.
+    // ----------------------------------------------------------------
+    app.get('/api/production/summary', async (req, res) => {
+        const days = Math.min(parseInt(req.query.days || '90', 10), 365);
+        try {
+            const result = await pool.query(`
+                SELECT pl.item_id,
+                       COALESCE(i.name, pl.item_name) AS item_name,
+                       SUM(pl.quantity)::INT           AS total_crafted,
+                       SUM(pl.total_cost)::BIGINT      AS total_cost,
+                       ROUND(SUM(pl.total_cost)::NUMERIC / NULLIF(SUM(pl.quantity), 0))::BIGINT AS avg_cost_per_unit,
+                       MAX(pl.crafted_at)              AS last_crafted,
+                       (SELECT aph2.min_unit_price FROM ah_price_hourly aph2
+                        WHERE aph2.item_id = pl.item_id ORDER BY aph2.hour DESC LIMIT 1) AS current_price
+                FROM production_log pl
+                LEFT JOIN items i ON i.item_id = pl.item_id
+                WHERE pl.crafted_at >= NOW() - INTERVAL '${days} days'
+                GROUP BY pl.item_id, i.name, pl.item_name
+                ORDER BY total_crafted DESC
+            `);
+            res.json(result.rows.map(r => ({
+                item_id:          r.item_id,
+                item_name:        r.item_name,
+                total_crafted:    r.total_crafted,
+                total_cost:       Number(r.total_cost),
+                avg_cost_per_unit: Number(r.avg_cost_per_unit),
+                current_price:    r.current_price != null ? Number(r.current_price) : null,
+                last_crafted:     r.last_crafted,
+            })));
+        } catch (err) {
+            console.error('[api] GET /api/production/summary failed:', err.message);
+            res.status(500).json({ error: 'Database error' });
+        }
+    });
+
+    // ----------------------------------------------------------------
+    // GET /api/gold/balance
+    // Latest known gold balance per character, plus total.
+    // ----------------------------------------------------------------
+    // ----------------------------------------------------------------
+    // GET /api/health — system status for monitoring and self-healing tasks
+    // ----------------------------------------------------------------
+    app.get('/api/health', async (_req, res) => {
+        try {
+            const [snapshotResult, profileResult] = await Promise.all([
+                pool.query(
+                    `SELECT COUNT(*)::INT AS snapshot_count, MAX(scanned_at) AS last_scanned_at
+                     FROM ah_snapshots`
+                ),
+                pool.query(
+                    `SELECT professions FROM profiles WHERE user_id = 'default'`
+                ),
+            ]);
+
+            const snap      = snapshotResult.rows[0];
+            const since24h  = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const errors24h = getRecentEvents({ since: since24h, level: 'error' });
+
+            res.json({
+                status:          errors24h.length > 0 ? 'degraded' : 'ok',
+                db: {
+                    snapshot_count:  snap.snapshot_count,
+                    last_scanned_at: snap.last_scanned_at,
+                },
+                profile_loaded:  profileResult.rows.length > 0,
+                errors_24h:      errors24h.length,
+                recent_errors:   errors24h.slice(-10).map(e => ({ ts: e.ts, source: e.source, message: e.message })),
+            });
+        } catch (err) {
+            log.error('api', 'GET /api/health failed', err);
+            res.status(500).json({ status: 'error', error: err.message });
+        }
+    });
+
+    app.get('/api/gold/balance', async (_req, res) => {
+        try {
+            const result = await pool.query(`
+                SELECT DISTINCT ON (character_name) character_name, gold_copper, snapped_at
+                FROM character_gold_snapshots
+                ORDER BY character_name, snapped_at DESC
+            `);
+            const characters = result.rows.map(r => ({
+                character_name: r.character_name,
+                gold_copper:    Number(r.gold_copper),
+                snapped_at:     r.snapped_at,
+            }));
+            const total_copper = characters.reduce((s, c) => s + c.gold_copper, 0);
+            res.json({ characters, total_copper });
+        } catch (err) {
+            console.error('[api] GET /api/gold/balance failed:', err.message);
             res.status(500).json({ error: 'Database error' });
         }
     });

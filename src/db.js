@@ -81,6 +81,7 @@ function buildInsertQuery(rows) {
     const text = `
         INSERT INTO ah_snapshots (item_id, buyout, quantity, time_left, scanned_at)
         VALUES ${rowPlaceholders.join(', ')}
+        ON CONFLICT (item_id, scanned_at) DO NOTHING
     `;
 
     return { text, values };

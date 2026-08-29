@@ -91,6 +91,12 @@
   .widget-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
   @media (max-width: 900px) { .widget-grid { grid-template-columns: 1fr; } }
 
+  /* ── Craft-centric dashboard layout ── */
+  .craft-main { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; padding: 20px 24px 0; align-items: start; }
+  @media (max-width: 1100px) { .craft-main { grid-template-columns: 1fr; } }
+  .craft-sidebar { position: sticky; top: 20px; }
+  .craft-transmutes { padding: 16px 24px 20px; }
+
   /* ── Widget ── */
   .widget { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   .widget-header { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
@@ -137,6 +143,36 @@
   .coming-soon .cs-icon  { font-size: 32px; opacity: .4; }
   .coming-soon .cs-title { color: var(--muted); font-size: 13px; }
   .coming-soon .cs-sub   { color: #555; font-size: 12px; text-align: center; max-width: 220px; }
+
+  /* ── Production tab ── */
+  .production-tab { padding: 20px 24px; }
+  .gold-char-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .gold-char-row:last-child { border-bottom: none; }
+  .gold-char-name { flex: 1; font-size: 13px; font-weight: 500; }
+  .gold-char-amount { font-size: 16px; font-weight: 700; color: var(--gold); font-family: var(--mono); }
+  .gold-char-snap { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .gold-total-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; margin-top: 6px; border-top: 1px solid var(--border-strong); }
+  .gold-total-label { font-size: 12px; color: var(--text-2); font-weight: 600; }
+  .gold-total-amount { font-size: 20px; font-weight: 700; color: var(--gold); font-family: var(--mono); }
+  .prod-summary-row { display: flex; align-items: center; padding: 7px 16px; border-bottom: 1px solid var(--border); gap: 10px; }
+  .prod-summary-row:last-child { border-bottom: none; }
+  .prod-summary-row:hover { background: var(--bg-card-2); }
+  .prod-item-name { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prod-qty { font-size: 12px; color: var(--text-2); white-space: nowrap; min-width: 60px; text-align: right; }
+  .prod-cost { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; font-family: var(--mono); min-width: 90px; text-align: right; }
+  .prod-margin { font-size: 12px; white-space: nowrap; min-width: 70px; text-align: right; }
+  .prod-margin.pos { color: var(--emerald); }
+  .prod-margin.neg { color: var(--ruby); }
+  .prod-margin.neutral { color: var(--text-3); }
+  .craft-log-row { padding: 8px 16px; border-bottom: 1px solid var(--border); }
+  .craft-log-row:last-child { border-bottom: none; }
+  .craft-log-row:hover { background: var(--bg-card-2); }
+  .craft-log-header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .craft-log-name { flex: 1; font-size: 13px; font-weight: 500; }
+  .craft-log-time { font-size: 11px; color: var(--text-3); }
+  .craft-log-cost { font-size: 12px; color: var(--gold); font-family: var(--mono); }
+  .craft-log-mats { display: flex; flex-wrap: wrap; gap: 4px; }
+  .craft-mat-chip { font-size: 11px; color: var(--text-2); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; }
 
   /* ── Watchlist tab ── */
   .watchlist-tab { padding: 20px 24px; }
@@ -210,6 +246,11 @@
   .form-group label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
   .form-select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 13px; outline: none; cursor: pointer; }
   .form-select:focus { border-color: var(--accent); }
+  .form-input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 13px; outline: none; }
+  .form-input:focus { border-color: var(--accent); }
+  .linked-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 12px; color: var(--text-2); }
+  .linked-chip button { background: none; border: none; color: var(--text-3); cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
+  .linked-chip button:hover { color: var(--ruby); }
   .form-section-title { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 10px; }
   .prof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .prof-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
@@ -247,10 +288,12 @@
   .break-even-badge { font-size: 9px; font-weight: 700; background: rgba(63,185,80,.15); color: var(--green); border: 1px solid var(--green); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
   .proc-badge { font-size: 9px; background: #2a1a00; color: #f0a500; border: 1px solid #f0a500; border-radius: 3px; padding: 1px 5px; white-space: nowrap; font-weight: 700; }
   /* Capital Planner */
-  .planner-input-row { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
-  .planner-gold-input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 5px 9px; border-radius: 6px; font-size: 13px; width: 110px; outline: none; }
-  .planner-gold-input:focus { border-color: var(--accent); }
-  .planner-calc-btn { background: var(--accent); color: #000; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .planner-gold-bar { padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  .planner-gold-display { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .planner-gold-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+  .planner-gold-amount { font-size: 17px; font-weight: 700; color: var(--gold); font-family: var(--mono); }
+  .planner-gold-detail { font-size: 11px; color: var(--text-3); }
+  .plan-badge { display: inline-flex; align-items: center; gap: 3px; background: rgba(52,211,153,.12); color: var(--emerald); border: 1px solid rgba(52,211,153,.25); border-radius: 3px; font-size: 9px; font-weight: 700; padding: 1px 5px; margin-left: 4px; white-space: nowrap; vertical-align: middle; }
   .planner-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .planner-table th { text-align: left; padding: 3px 10px; font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
   .planner-table td { padding: 5px 10px; border-bottom: 1px solid #1a1f26; }
@@ -266,11 +309,18 @@
   .rotation-verdict.worth-it { background: rgba(63,185,80,.1); color: var(--green); border: 1px solid var(--green); }
   .rotation-verdict.not-worth { background: rgba(248,81,73,.1); color: var(--red); border: 1px solid var(--red); }
   /* Sales History */
-  .sales-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; padding: 7px 16px; border-bottom: 1px solid #1a1f26; font-size: 12px; }
+  .sales-row { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 8px; align-items: center; padding: 7px 16px; border-bottom: 1px solid var(--border); font-size: 12px; }
   .sales-row:last-child { border-bottom: none; }
   .sales-row-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sales-revenue { color: var(--gold); font-weight: 600; white-space: nowrap; }
+  .sales-profit.pos { color: var(--emerald); font-weight: 600; white-space: nowrap; }
+  .sales-profit.neg { color: var(--ruby); font-weight: 600; white-space: nowrap; }
+  .sales-profit.neutral { color: var(--text-3); white-space: nowrap; }
   .sales-meta { color: var(--muted); font-size: 11px; white-space: nowrap; text-align: right; }
+  .pnl-summary { display: flex; gap: 18px; padding: 8px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .pnl-stat { display: flex; flex-direction: column; gap: 2px; }
+  .pnl-stat .lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
+  .pnl-stat .val { font-family: var(--mono); font-size: 13px; font-weight: 600; }
   /* ── Misc ── */
   .refresh-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
   .refresh-btn:hover { background: var(--border); color: var(--text); }
@@ -454,6 +504,7 @@
   .tag.elixir    { color: var(--emerald); border-color: rgba(52,211,153,.3);  background: rgba(52,211,153,.08); }
   .tag.potion    { color: var(--violet);  border-color: rgba(167,139,250,.3); background: rgba(167,139,250,.08); }
   .tag.transmute { color: var(--gold);    border-color: rgba(244,185,66,.3);  background: rgba(244,185,66,.08); }
+  .tag.tsm-tag   { color: rgba(244,185,66,0.7); border-color: rgba(244,185,66,.2); background: rgba(244,185,66,.06); font-style:italic; }
   .card-margin-pill {
     display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
     border-radius: 999px; font-family: var(--mono); font-size: 11px; font-weight: 600;
@@ -502,6 +553,12 @@
   .rec-r { text-align: right; }
   .rec-r .lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); margin-bottom: 4px; }
   .rec-r .val { font-family: var(--mono); font-size: 16px; font-weight: 600; color: var(--gold); }
+  .rec-progress-wrap { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .rec-progress { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .rec-progress-fill { height: 100%; border-radius: 3px; background: var(--arcane); transition: width .3s; }
+  .rec-progress-fill.done { background: var(--emerald); }
+  .rec-progress-lbl { font-family: var(--mono); font-size: 10px; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+  .rec-done-badge { font-size: 10px; font-weight: 700; color: var(--emerald); letter-spacing: .04em; white-space: nowrap; }
   .mats { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
   .mat {
     display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px 3px 5px;
@@ -550,6 +607,14 @@
     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12M3 11V8M6 11V5M9 11V7M12 11V3"/></svg>
     Watchlist
   </button>
+  <button class="tab" id="tab-btn-production" onclick="switchTab('production')" role="tab">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13V7l5-5 5 5v6H10V9H6v4z"/></svg>
+    Production
+  </button>
+  <button class="tab" id="tab-btn-markets" onclick="switchTab('markets')" role="tab">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11l4-4 3 3 5-6"/><path d="M10 4h4v4"/></svg>
+    Markets
+  </button>
 </div>
 
 <div class="main">
@@ -565,6 +630,70 @@
     </div>
   </div>
 
+  <!-- Crafting Profits + Capital Planner side-by-side -->
+  <div class="craft-main">
+
+    <!-- Left: Crafting Profits (primary) -->
+    <div class="widget">
+      <div class="widget-header">
+        <div>
+          <div class="widget-title">Crafting Profits</div>
+          <div class="widget-subtitle" id="crafting-subtitle">Recipes worth crafting right now</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="spec-toggle" id="spec-toggle" style="display:none">
+            <button class="spec-btn" id="spec-btn-elixir" onclick="setAlchemySpec('Elixir Master')">Elixir</button>
+            <button class="spec-btn" id="spec-btn-potion" onclick="setAlchemySpec('Potion Master')">Potion</button>
+          </div>
+          <div class="spec-toggle" id="crafting-sort-toggle">
+            <button class="spec-btn active" id="sort-btn-profit" onclick="setCraftingSort('profit')">Profit</button>
+            <button class="spec-btn" id="sort-btn-recent" onclick="setCraftingSort('recent')">Recent</button>
+          </div>
+          <button class="btn-secondary" style="font-size:12px;padding:4px 10px" onclick="copyShoppingList()" title="Copy mat shopping list to clipboard">&#128203; Shopping List</button>
+          <button class="refresh-btn" onclick="loadCrafting()">&#8635; Refresh</button>
+        </div>
+      </div>
+      <div class="widget-body" id="crafting-body"><div class="widget-loading">Loading&hellip;</div></div>
+    </div>
+
+    <!-- Right: Capital Planner (sticky sidebar) -->
+    <div class="widget craft-sidebar">
+      <div class="widget-header">
+        <div>
+          <div class="widget-title">Today's Plan</div>
+          <div class="widget-subtitle">Craft queue · optimal allocation of your gold</div>
+        </div>
+      </div>
+      <div id="planner-gold-bar" class="planner-gold-bar">
+        <span style="font-size:12px;color:var(--muted)">Loading gold balance…</span>
+      </div>
+      <div id="planner-result"></div>
+      <div class="rotation-section" id="rotation-section" style="display:none">
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Spec Rotation Analysis &mdash; 150g respec</div>
+        <div class="rotation-cols" id="rotation-cols"></div>
+        <div class="rotation-verdict" id="rotation-verdict"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Transmutes: populated by loadCrafting, shown below the main grid -->
+  <div class="craft-transmutes">
+    <div class="widget">
+      <div class="widget-header">
+        <div>
+          <div class="widget-title">Transmutes</div>
+          <div class="widget-subtitle">Daily cooldown &mdash; Transmutation Mastery only</div>
+        </div>
+      </div>
+      <div class="widget-body" id="transmutes-body" style="max-height:300px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MARKETS TAB -->
+<div id="tab-markets" class="tab-panel">
   <div class="dashboard">
 
     <!-- Action Feed -->
@@ -581,86 +710,19 @@
       </div>
     </div>
 
-    <!-- Crafting Profits (full width) -->
-    <div class="widget-full">
-      <div class="widget">
-        <div class="widget-header">
-          <div>
-            <div class="widget-title">Crafting Profits</div>
-            <div class="widget-subtitle" id="crafting-subtitle">Recipes worth crafting right now</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="spec-toggle" id="spec-toggle" style="display:none">
-              <button class="spec-btn" id="spec-btn-elixir" onclick="setAlchemySpec('Elixir Master')">Elixir</button>
-              <button class="spec-btn" id="spec-btn-potion" onclick="setAlchemySpec('Potion Master')">Potion</button>
-            </div>
-            <button class="refresh-btn" onclick="loadCrafting()">&#8635; Refresh</button>
-          </div>
-        </div>
-        <div class="widget-body" id="crafting-body" style="max-height:520px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
-      </div>
-    </div>
-
-    <!-- Row: Capital Planner + Flask Strategy -->
+    <!-- Row: Flask Strategy + Alchemy Price Watch -->
     <div class="widget-grid" style="margin-top:16px">
       <div class="widget">
         <div class="widget-header">
           <div>
-            <div class="widget-title">Capital Planner</div>
-            <div class="widget-subtitle">Optimal craft allocation given available gold</div>
-          </div>
-        </div>
-        <div class="planner-input-row">
-          <label style="font-size:12px;color:var(--muted)">Available gold:</label>
-          <input class="planner-gold-input" id="planner-gold" type="number" min="0" step="1" placeholder="e.g. 500">
-          <button class="planner-calc-btn" onclick="runCapitalPlanner()">Calculate</button>
-        </div>
-        <div id="planner-result"></div>
-        <div class="rotation-section" id="rotation-section" style="display:none">
-          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Spec Rotation Analysis &mdash; 150g respec</div>
-          <div class="rotation-cols" id="rotation-cols"></div>
-          <div class="rotation-verdict" id="rotation-verdict"></div>
-        </div>
-      </div>
-
-      <div class="widget">
-        <div class="widget-header">
-          <div>
             <div class="widget-title">Flask Strategy</div>
-            <div class="widget-subtitle">All flasks &mdash; proc EV, timing signals (Elixir Master: 1.35&times;)</div>
+            <div class="widget-subtitle">All flasks &mdash; proc EV, timing signals (Elixir Master: 1.15&times;)</div>
           </div>
           <button class="refresh-btn" onclick="loadFlaskWidget()">&#8635; Refresh</button>
         </div>
         <div class="widget-body" id="flask-body" style="max-height:400px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
-    </div>
 
-    <!-- Row: Transmutes + Mote Arbitrage -->
-    <div class="widget-grid" style="margin-top:16px">
-      <div class="widget">
-        <div class="widget-header">
-          <div>
-            <div class="widget-title">Transmutes</div>
-            <div class="widget-subtitle">Daily cooldown &mdash; Transmutation Mastery only</div>
-          </div>
-        </div>
-        <div class="widget-body" id="transmutes-body" style="max-height:400px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
-      </div>
-
-      <div class="widget">
-        <div class="widget-header">
-          <div>
-            <div class="widget-title">Mote &#8596; Primal Arbitrage</div>
-            <div class="widget-subtitle">10 motes = 1 primal &mdash; buy motes when spread is positive</div>
-          </div>
-          <button class="refresh-btn" onclick="loadMotes()">&#8635; Refresh</button>
-        </div>
-        <div class="widget-body" id="motes-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0"><div class="widget-loading">Loading&hellip;</div></div>
-      </div>
-    </div>
-
-    <!-- Row: Alchemy Price Watch + Sales History -->
-    <div class="widget-grid" style="margin-top:16px">
       <div class="widget">
         <div class="widget-header">
           <div>
@@ -671,6 +733,20 @@
         </div>
         <div id="market-body" style="max-height:500px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
+    </div>
+
+    <!-- Row: Mote Arbitrage + Sales History -->
+    <div class="widget-grid" style="margin-top:16px">
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Mote &#8596; Primal Arbitrage</div>
+            <div class="widget-subtitle">10 motes = 1 primal &mdash; buy motes when spread is positive</div>
+          </div>
+          <button class="refresh-btn" onclick="loadMotes()">&#8635; Refresh</button>
+        </div>
+        <div class="widget-body" id="motes-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0"><div class="widget-loading">Loading&hellip;</div></div>
+      </div>
 
       <div class="widget">
         <div class="widget-header">
@@ -678,9 +754,17 @@
             <div class="widget-title">Sales History</div>
             <div class="widget-subtitle" id="sales-subtitle">Your recent AH sales from TSM (30d)</div>
           </div>
-          <button class="refresh-btn" onclick="loadSalesHistory()">&#8635; Refresh</button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select id="sales-char-filter" class="form-select" style="font-size:12px;padding:4px 6px;height:auto" onchange="loadSalesHistory()">
+              <option value="">All Characters</option>
+            </select>
+            <button class="refresh-btn" onclick="loadSalesHistory()">&#8635; Refresh</button>
+          </div>
         </div>
-        <div id="sales-body" style="max-height:500px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
+        <div id="pnl-chart-wrap" style="display:none;padding:12px 16px 0">
+          <canvas id="pnl-chart" height="100"></canvas>
+        </div>
+        <div id="sales-body" style="max-height:400px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
       </div>
     </div>
 
@@ -718,6 +802,56 @@
       <p>No items in your watchlist yet.</p>
       <p style="margin-top:6px;font-size:12px;color:#555">Search for an item above and click to follow it.</p>
     </div>
+  </div>
+</div>
+
+<!-- PRODUCTION TAB -->
+<div id="tab-production" class="tab-panel">
+  <div class="production-tab">
+
+    <!-- Gold Balance bar -->
+    <div class="widget" style="margin-bottom:16px">
+      <div class="widget-header">
+        <div>
+          <div class="widget-title">Gold on Hand</div>
+          <div class="widget-subtitle">Gold at last logout — accurate once you log out normally (not /reload)</div>
+        </div>
+        <button class="refresh-btn" onclick="loadGoldBalance()">&#8635; Refresh</button>
+      </div>
+      <div id="gold-balance-body" style="padding:12px 16px"><div class="widget-loading">Loading&hellip;</div></div>
+    </div>
+
+    <!-- Cost Basis Summary -->
+    <div class="widget" style="margin-bottom:16px">
+      <div class="widget-header">
+        <div>
+          <div class="widget-title">Cost Basis by Item</div>
+          <div class="widget-subtitle">Average mat cost per unit crafted — open tradeskill window in-game to track</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select id="prod-days" class="form-select" style="font-size:12px;padding:4px 6px;height:auto" onchange="loadProductionSummary()">
+            <option value="7">7 days</option>
+            <option value="30" selected>30 days</option>
+            <option value="90">90 days</option>
+          </select>
+          <button class="refresh-btn" onclick="loadProductionSummary()">&#8635; Refresh</button>
+        </div>
+      </div>
+      <div id="prod-summary-body"><div class="widget-loading">Loading&hellip;</div></div>
+    </div>
+
+    <!-- Craft Log -->
+    <div class="widget">
+      <div class="widget-header">
+        <div>
+          <div class="widget-title">Craft Log</div>
+          <div class="widget-subtitle">Every detected craft with material cost breakdown</div>
+        </div>
+        <button class="refresh-btn" onclick="loadProductionLog()">&#8635; Refresh</button>
+      </div>
+      <div id="prod-log-body" style="max-height:500px;overflow-y:auto"><div class="widget-loading">Loading&hellip;</div></div>
+    </div>
+
   </div>
 </div>
 
@@ -779,6 +913,13 @@
       <div class="prof-grid" id="prof-primary"></div>
       <div class="form-section-title">Secondary Professions</div>
       <div class="prof-grid" id="prof-secondary"></div>
+      <div class="form-section-title">Linked Characters <span style="color:#555;font-weight:400;text-transform:none">Bank alts &amp; alts on same economy</span></div>
+      <div id="linked-chars-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:24px"></div>
+      <div style="display:flex;gap:6px">
+        <input class="form-input" id="linked-char-input" type="text" placeholder="Character name" style="flex:1"
+               onkeydown="if(event.key==='Enter'){addLinkedChar();event.preventDefault();}">
+        <button class="btn-secondary" onclick="addLinkedChar()" style="padding:5px 12px">Add</button>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
@@ -815,6 +956,9 @@ let chartInstance = null;
 let selectedItem  = null;
 let searchTimer   = null;
 let craftingData  = null;   // last /api/dashboard/crafting response (for planner re-renders)
+let goldData      = null;   // last /api/gold/balance response
+let planMap       = null;   // output_name → craft qty for current plan (used by card badges)
+let craftingSort  = 'profit'; // 'profit' | 'recent'
 let marketData    = null;   // last /api/dashboard/alchemy-market response (for timing cross-ref)
 let marketTbcOnly = true;   // Alchemy Price Watch: show only TBC items (min_skill >= 275) by default
 // Action feed: signals contributed by different loaders
@@ -855,6 +999,8 @@ function wowLink(itemId, text) {
 }
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
+let marketsLoaded = false;
+
 function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn, .tab').forEach(b => b.classList.remove('active'));
@@ -862,6 +1008,18 @@ function switchTab(name) {
   const tabBtn = document.getElementById('tab-btn-' + name);
   if (tabBtn) tabBtn.classList.add('active');
   if (name === 'watchlist') renderWatchlist();
+  if (name === 'production') {
+    loadGoldBalance();
+    loadProductionSummary();
+    loadProductionLog();
+  }
+  if (name === 'markets' && !marketsLoaded) {
+    marketsLoaded = true;
+    loadFlaskWidget();
+    loadMotes();
+    loadAlchemyMarket();
+    refreshSalesCharFilter().then(() => loadSalesHistory());
+  }
 }
 
 // ── Profile ────────────────────────────────────────────────────────────────
@@ -1080,6 +1238,10 @@ function craftingRow(r, isTransmute) {
   const chartBtn = r.output_id
     ? '<button class="card-chart-btn" onclick="openRecipeChart(' + r.output_id + ',\'' + escHtml(r.output_name).replace(/'/g, "\\'") + '\')" title="Price history">chart</button>'
     : '';
+  const planQty  = planMap?.get(r.output_name);
+  const planBadge = planQty
+    ? '<span class="plan-badge">&#10003;&nbsp;' + planQty + ' today</span>'
+    : '';
 
   // ── Alchemy card layout ──
   if (r.alchemy_type) {
@@ -1098,14 +1260,15 @@ function craftingRow(r, isTransmute) {
       ? pctStr + formatCopper(Math.abs(evMargin)) + '/craft'
       : 'no data';
 
-    // Gold/day
+    // Gold/day — only when market isn't stocked
     const goldPerDay = (r.alchemy_type === 'flask' || r.alchemy_type === 'elixir' || r.alchemy_type === 'potion') &&
-                       evMargin != null && r.daily_cap != null && evMargin > 0
+                       evMargin != null && r.daily_cap != null && r.daily_cap > 0 && evMargin > 0
       ? Math.round(evMargin * r.daily_cap) : null;
 
-    // Liquidity sub-info
-    const liqInfo = r.region_sold_per_day != null
-      ? r.region_sold_per_day.toFixed(1) + '/day region' : '';
+    // Liquidity sub-info: supply days (from our AH scan) + regional velocity
+    const supplyStr = r.days_of_supply != null ? r.days_of_supply.toFixed(1) + 'd supply on AH' : '';
+    const velStr    = r.region_sold_per_day != null ? r.region_sold_per_day.toFixed(1) + '/day region' : '';
+    const liqInfo   = [supplyStr, velStr].filter(Boolean).join(' · ');
 
     // Mats chips
     const mats = r.materials
@@ -1139,7 +1302,7 @@ function craftingRow(r, isTransmute) {
         '<div class="proc-l">' +
         '<div class="proc-glyph">&#10022;</div>' +
         '<div class="proc-text">' +
-        '<div class="lbl">Elixir Master proc<span class="rate">10% &middot; 3.5&times;</span></div>' +
+        '<div class="lbl">Elixir Master proc<span class="rate">15% &middot; 1&times;</span></div>' +
         '<div class="desc">EV: ' + copperToGold(r.expected_margin) + ' / craft &nbsp;&middot;&nbsp; worst: ' + copperToGold(r.profit) + '</div>' +
         '</div></div>' +
         '<div class="proc-r">' +
@@ -1148,16 +1311,39 @@ function craftingRow(r, isTransmute) {
         '</div></div>'
       : '';
 
-    // Rec row
-    const recQty = r.daily_cap != null ? Math.max(1, Math.round(r.daily_cap)) : null;
-    const recRow = goldPerDay != null && recQty != null
-      ? '<div class="rec">' +
+    // Rec row with daily progress bar
+    const recQty    = r.daily_cap != null && r.daily_cap > 0 ? r.daily_cap : null;
+    const soldToday = r.sales_today != null ? r.sales_today : null;
+    let recRow = '';
+    if (r.daily_cap === 0) {
+      // AH already has >2 days of your share posted — advise holding off
+      const daysStr = r.days_of_supply != null ? r.days_of_supply.toFixed(1) + 'd' : 'excess';
+      recRow = '<div class="rec" style="opacity:.65">' +
+        '<div class="rec-l"><div class="lbl" style="color:var(--text-3)">Market stocked</div>' +
+        '<div style="font-size:11px;color:var(--text-3);margin-top:3px">' +
+        'AH has ' + daysStr + ' of supply at your rate &mdash; hold off crafting' +
+        '</div></div></div>';
+    } else if (goldPerDay != null && recQty != null) {
+      let progressHtml = '';
+      if (soldToday != null) {
+        const pct    = Math.min(100, Math.round((soldToday / recQty) * 100));
+        const isDone = soldToday >= recQty;
+        progressHtml = '<div class="rec-progress-wrap">' +
+          '<div class="rec-progress"><div class="rec-progress-fill' + (isDone ? ' done' : '') + '" style="width:' + pct + '%"></div></div>' +
+          (isDone
+            ? '<span class="rec-done-badge">&#10003; DONE</span>'
+            : '<span class="rec-progress-lbl">' + soldToday + ' / ' + recQty + ' sold today</span>'
+          ) +
+          '</div>';
+      }
+      recRow = '<div class="rec">' +
         '<div class="rec-l"><div class="lbl">Daily recommendation</div>' +
-        '<div class="qty-row"><div class="qty">' + recQty + '</div><div class="qty-x">crafts &mdash; cap ' + recQty + '/day</div></div>' +
+        '<div class="qty-row"><div class="qty">' + recQty + '</div><div class="qty-x">crafts &mdash; est. your share</div></div>' +
+        progressHtml +
         '</div>' +
         '<div class="rec-r"><div class="lbl">Gold / day</div><div class="val">' + formatCopper(goldPerDay) + '</div></div>' +
-        '</div>'
-      : '';
+        '</div>';
+    }
 
     const isTop = goldPerDay != null && goldPerDay > 500000;
 
@@ -1165,9 +1351,10 @@ function craftingRow(r, isTransmute) {
       '<div class="card-head">' +
       '<div class="card-icon ' + iconClass + '"><div class="cap"></div><div class="liquid"></div></div>' +
       '<div class="card-title-block">' +
-      '<div class="card-title">' + wowLink(r.output_id, r.output_name) + cooldownNote + timingBadges + chartBtn + '</div>' +
+      '<div class="card-title">' + wowLink(r.output_id, r.output_name) + cooldownNote + planBadge + timingBadges + chartBtn + '</div>' +
       '<div class="card-sub">' +
       '<span class="tag ' + r.alchemy_type + '">' + r.alchemy_type + '</span>' +
+      (r.uses_tsm ? ' <span class="tag tsm-tag" title="Prices estimated via TSM — no recent AH scan">~TSM</span>' : '') +
       (liqInfo ? '<span class="sep">&middot;</span><span>' + liqInfo + '</span>' : '') +
       '</div>' +
       '</div>' +
@@ -1178,25 +1365,56 @@ function craftingRow(r, isTransmute) {
       '</div>';
   }
 
-  // ── Non-alchemy: keep simple layout ──
-  const profitColor = profitPos ? 'var(--green)' : 'var(--red)';
-  const pctBadge    = profitKnown && r.profit_pct != null
-    ? '<span style="font-size:11px;color:' + profitColor + ';font-weight:700;white-space:nowrap">' + (r.profit >= 0 ? '+' : '') + r.profit_pct + '%</span>' : '';
-  const matsLabel   = profitKnown
-    ? 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: ' + copperToGold(r.material_cost)
-    : 'Sell: ' + copperToGold(r.output_price) + ' &nbsp; Mats: <span style="color:#555">incomplete</span>';
-  const profitLabel = profitKnown
-    ? '<span style="font-size:12px;color:' + profitColor + ';white-space:nowrap">' + copperToGold(Math.abs(r.profit)) + (r.profit >= 0 ? ' profit' : ' loss') + '</span>'
-    : '<span style="font-size:12px;color:#555;white-space:nowrap">profit unknown</span>';
-  const missingNote = hasMissing
-    ? '<div style="font-size:10px;color:#555;margin-top:2px">Missing price: ' + escHtml(r.missing_mats.join(', ')) + '</div>' : '';
-  return '<div class="deal-row" style="flex-direction:column;align-items:flex-start;gap:3px;padding:8px 16px">' +
-    '<div style="display:flex;align-items:center;width:100%;gap:8px">' +
-    '<span style="flex:1;font-size:13px;font-weight:500">' + wowLink(r.output_id, r.output_name) + '</span>' +
-    chartBtn + profitLabel + pctBadge + '</div>' +
-    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
-    '<span style="font-size:11px;color:var(--muted)">' + matsLabel + '</span></div>' +
-    missingNote + '</div>';
+  // ── Non-alchemy: proper card layout ──
+  const evMargin2  = r.profit;
+  const pillPos2   = evMargin2 != null && evMargin2 >= 0;
+  const pillClass2 = evMargin2 == null ? 'zero' : pillPos2 ? '' : 'neg';
+  const pctStr2    = profitKnown && r.profit_pct != null
+    ? (r.profit >= 0 ? '+' : '') + r.profit_pct + '% ' : '';
+  const pillText2  = evMargin2 != null
+    ? pctStr2 + formatCopper(Math.abs(evMargin2)) + '/craft'
+    : 'no data';
+
+  const mats2 = r.materials
+    ? r.materials.map(m =>
+        '<span class="mat">' +
+        '<span class="swatch" style="background:' + matSwatchColor(m.name) + '"></span>' +
+        escHtml(m.name) +
+        (m.qty > 1 ? '<span class="qty">&times;' + m.qty + '</span>' : '') +
+        '</span>'
+      ).join('') : '';
+
+  let priceRow2;
+  if (profitKnown) {
+    priceRow2 = '<div class="price-row">' +
+      '<div class="price-cell"><div class="lbl">Mat cost</div><div class="val gold">' + copperToGold(r.material_cost) + '</div></div>' +
+      '<div class="price-cell"><div class="lbl">Sell (&minus;5%)</div><div class="val">' + copperToGold(r.output_price) + '</div></div>' +
+      '<div class="price-cell"><div class="lbl">Margin</div><div class="val ' + (pillPos2 ? 'emerald' : 'ruby') + '">' +
+      copperToGold(Math.abs(r.profit)) + (r.profit < 0 ? ' loss' : '') + '</div></div>' +
+      '</div>';
+  } else {
+    priceRow2 = hasMissing
+      ? '<div class="missing-note">Missing price data: ' + escHtml(r.missing_mats.join(', ')) + '</div>'
+      : '<div style="font-size:11px;color:var(--text-3);margin-bottom:12px">No price data yet</div>';
+  }
+
+  const liqInfo2 = r.region_sold_per_day != null
+    ? r.region_sold_per_day.toFixed(1) + '/day region' : '';
+
+  return '<div class="card">' +
+    '<div class="card-head">' +
+    '<div class="card-title-block">' +
+    '<div class="card-title">' + wowLink(r.output_id, r.output_name) + chartBtn + '</div>' +
+    '<div class="card-sub">' +
+    '<span class="tag">' + escHtml(r.profession) + '</span>' +
+    (liqInfo2 ? '<span class="sep">&middot;</span><span>' + liqInfo2 + '</span>' : '') +
+    '</div>' +
+    '</div>' +
+    '<div class="card-margin-pill ' + pillClass2 + '">' + pillText2 + '</div>' +
+    '</div>' +
+    (mats2 ? '<div class="mats">' + mats2 + '</div>' : '') +
+    priceRow2 +
+    '</div>';
 }
 
 // ── Flask Strategy widget ──────────────────────────────────────────────────
@@ -1239,15 +1457,18 @@ function renderFlaskWidget() {
     const goldDay   = margin != null ? margin * (r.region_sold_per_day ?? 0.5) : null;
 
     const procBadge = isElixirMaster && (r.proc_yield || 1) > 1
-      ? ' <span style="background:#2a1a00;color:#f0a500;border:1px solid #f0a500;border-radius:3px;font-size:9px;font-weight:700;padding:1px 5px;white-space:nowrap">1.35&times; PROC</span>'
+      ? ' <span style="background:#2a1a00;color:#f0a500;border:1px solid #f0a500;border-radius:3px;font-size:9px;font-weight:700;padding:1px 5px;white-space:nowrap">1.15&times; PROC</span>'
       : '';
 
     const velBadge = r.region_sold_per_day != null
       ? ' <span style="font-size:10px;color:var(--muted);white-space:nowrap">' + r.region_sold_per_day.toFixed(1) + '/day</span>'
       : '';
 
+    const tsmBadge = r.uses_tsm
+      ? ' <span class="tag tsm-tag" title="Prices estimated via TSM — no recent AH scan">~TSM</span>'
+      : '';
     html += '<div class="deal-row">' +
-      '<div class="deal-name">' + wowLink(r.output_id, r.output_name) + '</div>' +
+      '<div class="deal-name">' + wowLink(r.output_id, r.output_name) + tsmBadge + '</div>' +
       (hasPrice
         ? '<div class="deal-prices">Sell: ' + copperToGold(r.output_price) + ' &nbsp;|&nbsp; Mats: ' + copperToGold(r.material_cost) + '</div>'
         : '<div class="deal-prices" style="color:#555">No price data yet</div>') +
@@ -1268,12 +1489,48 @@ function renderFlaskWidget() {
   body.innerHTML = html;
 }
 
-async function loadCrafting() {
-  const body = document.getElementById('crafting-body');
-  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+async function copyShoppingList() {
+  const btn = document.querySelector('[onclick="copyShoppingList()"]');
+  const origText = btn ? btn.textContent : '';
   try {
-    const data = await apiFetch('/api/dashboard/crafting');
-    craftingData = data;
+    if (btn) { btn.textContent = 'Loading…'; btn.disabled = true; }
+    const data = await apiFetch('/api/dashboard/shopping-list');
+    if (!data.items || !data.items.length) {
+      alert('No profitable crafts found right now — nothing to buy.');
+      return;
+    }
+    const totalCost = data.items.reduce((s, m) => s + m.total_cost, 0);
+    const lines = [
+      '=== AH Tracker Shopping List ===',
+      `${new Date().toLocaleDateString('en-US', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}`,
+      '',
+      ...data.items.map(m => {
+        const price = m.price ? ` @ ${(m.price/10000).toFixed(1)}g ea` : '';
+        const cost  = m.price ? ` (${(m.total_cost/10000).toFixed(1)}g)` : '';
+        return `${m.total_qty}x ${m.name}${price}${cost}`;
+      }),
+      '',
+      `Total mat cost: ~${(totalCost/10000).toFixed(0)}g`,
+    ];
+    await navigator.clipboard.writeText(lines.join('\n'));
+    if (btn) { btn.textContent = '✓ Copied!'; }
+    setTimeout(() => { if (btn) { btn.textContent = origText; btn.disabled = false; } }, 2000);
+  } catch(e) {
+    console.error('copyShoppingList failed', e);
+    if (btn) { btn.textContent = origText; btn.disabled = false; }
+    alert('Failed to load shopping list. Check console for details.');
+  }
+}
+
+function setCraftingSort(mode) {
+  craftingSort = mode;
+  document.getElementById('sort-btn-profit').className = 'spec-btn' + (mode === 'profit' ? ' active' : '');
+  document.getElementById('sort-btn-recent').className = 'spec-btn' + (mode === 'recent' ? ' active' : '');
+  if (craftingData) renderCraftingFromData(craftingData);
+}
+
+function renderCraftingFromData(data) {
+  const body = document.getElementById('crafting-body');
 
     if (data.needs_profile) {
       body.innerHTML = '<div class="widget-empty"><div>No professions set</div><div class="hint"><a style="color:var(--accent);cursor:pointer" onclick="openSettings()">Add professions in Settings</a></div></div>';
@@ -1305,12 +1562,20 @@ async function loadCrafting() {
     const transmutes = withPrice.filter(r => r.alchemy_type === 'transmute' ||
                        (r.recipe_name && r.recipe_name.match(/transmute/i)) ||
                        (r.output_name && r.output_name.match(/transmute/i)));
-    const craftRows  = withPrice
-      .filter(r => !transmutes.includes(r))
-      .filter(r => r.region_sale_pct == null || r.region_sale_pct >= 0.15)
-      .slice(0, 20);
-    const lowLiq     = withPrice
-      .filter(r => !transmutes.includes(r) && r.region_sale_pct != null && r.region_sale_pct < 0.15);
+    const volumeItems = withPrice.filter(r => !transmutes.includes(r));
+
+    // Apply sort: 'recent' sorts by last_scanned_at desc; 'profit' keeps backend order
+    const sorted = craftingSort === 'recent'
+      ? [...volumeItems].sort((a, b) => {
+          if (!a.last_scanned_at && !b.last_scanned_at) return 0;
+          if (!a.last_scanned_at) return 1;
+          if (!b.last_scanned_at) return -1;
+          return new Date(b.last_scanned_at) - new Date(a.last_scanned_at);
+        })
+      : volumeItems;
+
+    const craftRows  = sorted.filter(r => r.region_sale_pct == null || r.region_sale_pct >= 0.15).slice(0, 20);
+    const lowLiq     = volumeItems.filter(r => r.region_sale_pct != null && r.region_sale_pct < 0.15);
     const unknowns   = data.items.filter(r => r.output_price == null);
 
     // ── Transmutes widget ──
@@ -1330,9 +1595,25 @@ async function loadCrafting() {
       if (unknowns.length) html += '<div style="padding:4px 16px;font-size:11px;color:var(--text-3)">' + unknowns.length + ' recipe(s) missing price data</div>';
       body.innerHTML = html;
     }
+}
+
+async function loadCrafting() {
+  const body = document.getElementById('crafting-body');
+  body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  try {
+    const data = await apiFetch('/api/dashboard/crafting');
+    craftingData = data;
+
+    // Merge today's sales count into each recipe by output item_id
+    const salesToday = data.sales_today || {};
+    if (data.items) {
+      data.items.forEach(r => { r.sales_today = r.output_id != null ? (salesToday[r.output_id] ?? null) : null; });
+    }
+
+    renderCraftingFromData(data);
 
     // ── CRAFT signals for action feed ──
-    actionSignals.craft = withPrice
+    actionSignals.craft = (data.items || []).filter(r => r.output_price != null)
       .filter(r => r.profit != null && r.profit_pct != null && r.profit_pct >= 15)
       .filter(r => r.region_sale_pct == null || r.region_sale_pct >= 0.30)
       .slice(0, 5)
@@ -1346,6 +1627,7 @@ async function loadCrafting() {
         absValue:  Math.abs(r.profit),
       }));
     renderActionFeed();
+    autoRunPlanner();
 
   } catch(e) {
     body.innerHTML = '<div class="widget-empty"><div>Failed to load</div><div class="hint">' + escHtml(e.message) + '</div></div>';
@@ -1446,38 +1728,48 @@ async function setAlchemySpec(spec) {
 }
 
 // ── Capital Planner ────────────────────────────────────────────────────────
+// Auto-runs when both craftingData and goldData are available (via autoRunPlanner()).
+// No manual gold input needed — uses the actual balance from character_gold_snapshots.
 function runCapitalPlanner() {
-  const goldInput = parseFloat(document.getElementById('planner-gold').value);
-  const resultEl  = document.getElementById('planner-result');
+  const resultEl = document.getElementById('planner-result');
+  if (!resultEl) return;
 
-  if (!goldInput || goldInput <= 0) {
-    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">Enter your available gold above.</div>';
-    return;
-  }
   if (!craftingData || !craftingData.items) {
-    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">Load crafting data first (reload the page).</div>';
+    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">Loading crafting data…</div>';
     return;
   }
 
-  const goldCu     = Math.round(goldInput * 10000);
+  const goldCu      = goldData?.total_copper ?? 0;
   const alchemySpec = craftingData.alchemy_spec || 'Elixir Master';
 
-  // Only volume alchemy items (exclude transmutes — they're cooldown-gated, handled separately)
+  // Profitable volume alchemy (exclude transmutes — cooldown-gated, listed separately).
+  // Sorted by expected gold/day — same metric as Crafting Profits "Profit" sort,
+  // so the planner table and the cards below always agree on priority order.
   const candidates = craftingData.items
-    .filter(r => r.alchemy_type && r.alchemy_type !== 'transmute' && r.expected_margin != null && r.expected_margin > 0 && r.material_cost > 0)
-    .sort((a, b) => (b.expected_margin / b.material_cost) - (a.expected_margin / a.material_cost));
+    .filter(r => r.alchemy_type && r.alchemy_type !== 'transmute'
+              && r.expected_margin != null && r.expected_margin > 0
+              && r.material_cost > 0 && r.daily_cap !== 0)
+    .sort((a, b) => {
+      const evA = (a.expected_margin ?? 0) * (a.daily_cap ?? 5);
+      const evB = (b.expected_margin ?? 0) * (b.daily_cap ?? 5);
+      return evB - evA;
+    });
 
   if (!candidates.length) {
-    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">No profitable alchemy recipes with full price data right now.</div>';
+    planMap = null;
+    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">No profitable recipes with full price data right now.</div>';
+    renderCraftingFromData(craftingData);
     return;
   }
 
+  // Knapsack allocation: fill each recipe to its daily cap in priority order.
+  // When gold is plentiful (common) the cap constraint dominates.
+  // When gold is tight the budget constraint kicks in and lower-priority items get cut.
   let remaining = goldCu;
   const plan = [];
-
   for (const r of candidates) {
     if (remaining < r.material_cost) continue;
-    const maxCrafts  = r.daily_cap != null ? Math.max(1, Math.round(r.daily_cap)) : 5;
+    const maxCrafts  = r.daily_cap != null ? r.daily_cap : 5;
     const affordable = Math.floor(remaining / r.material_cost);
     const crafts     = Math.min(maxCrafts, affordable);
     if (crafts <= 0) continue;
@@ -1487,47 +1779,47 @@ function runCapitalPlanner() {
     remaining -= spent;
   }
 
+  // Update planMap so crafting cards can show "in plan" badges
+  planMap = plan.length ? new Map(plan.map(p => [p.r.output_name, p.crafts])) : null;
+  renderCraftingFromData(craftingData);  // re-render cards with plan badges
+
   if (!plan.length) {
-    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">Not enough gold for any recipe at current prices.</div>';
+    resultEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--muted)">' +
+      (goldCu > 0 ? 'Not enough gold for any recipe at current prices.' : 'No gold balance recorded yet.') + '</div>';
     return;
   }
 
   const totalSpent  = plan.reduce((s, p) => s + p.spent, 0);
   const totalProfit = plan.reduce((s, p) => s + p.profit, 0);
-
-  // Show yield column whenever flasks are in the plan (procs create extra output)
-  const hasFlasks = plan.some(p => p.r.proc_yield > 1);
+  const totalRoi    = totalSpent > 0 ? ((totalProfit / totalSpent) * 100).toFixed(0) : 0;
+  const hasFlasks   = plan.some(p => p.r.proc_yield > 1);
 
   let html = '<table class="planner-table"><thead><tr>' +
     '<th>Recipe</th>' +
-    (hasFlasks ? '<th style="text-align:right" title="Crafts → expected flask output with 1.35× proc yield">Crafts → Yield</th>' : '<th style="text-align:right">Crafts</th>') +
-    '<th style="text-align:right">Cost</th>' +
-    '<th style="text-align:right">Exp. Profit</th><th style="text-align:right">ROI</th>' +
+    (hasFlasks ? '<th style="text-align:right" title="Crafts → expected output with 1.15× proc EV">Qty → EV</th>' : '<th style="text-align:right">Qty</th>') +
+    '<th style="text-align:right">Mat cost</th>' +
+    '<th style="text-align:right">Exp. profit</th>' +
     '</tr></thead><tbody>';
 
   for (const { r, crafts, spent, profit } of plan) {
-    const roi        = ((profit / spent) * 100).toFixed(0);
-    const yieldCell  = hasFlasks
+    const qtyCell = hasFlasks
       ? (r.proc_yield > 1
-          ? '<td style="text-align:right">' + crafts + ' <span style="color:var(--gold)">→ ~' + (crafts * r.proc_yield).toFixed(1) + '</span></td>'
+          ? '<td style="text-align:right">' + crafts + ' <span style="color:var(--gold);font-size:11px">→ ~' + (crafts * r.proc_yield).toFixed(1) + '</span></td>'
           : '<td style="text-align:right;color:var(--muted)">' + crafts + '</td>')
       : '<td style="text-align:right">' + crafts + '</td>';
-    const timingCell = flaskTimingBadges(r);
     html += '<tr>' +
-      '<td><span class="alchemy-type-badge ' + r.alchemy_type + '">' + r.alchemy_type + '</span> ' + escHtml(r.output_name) + timingCell + '</td>' +
-      yieldCell +
-      '<td style="text-align:right">' + copperToGold(spent) + '</td>' +
+      '<td><span class="alchemy-type-badge ' + r.alchemy_type + '">' + r.alchemy_type + '</span> ' + escHtml(r.output_name) + flaskTimingBadges(r) + '</td>' +
+      qtyCell +
+      '<td style="text-align:right;color:var(--muted)">' + copperToGold(spent) + '</td>' +
       '<td style="text-align:right;color:var(--green)">' + copperToGold(profit) + '</td>' +
-      '<td style="text-align:right;color:var(--green)">' + roi + '%</td>' +
       '</tr>';
   }
 
-  const totalRoi = totalSpent > 0 ? ((totalProfit / totalSpent) * 100).toFixed(0) : 0;
   html += '<tr class="planner-total">' +
-    '<td colspan="2">' + plan.length + ' recipes' + (remaining > 0 ? ' &middot; ' + copperToGold(remaining) + ' unspent' : '') + '</td>' +
+    '<td>' + plan.length + ' recipes' + (remaining > 0 ? ' <span style="color:var(--muted);font-weight:400">&middot; ' + copperToGold(remaining) + ' unspent</span>' : '') + '</td>' +
+    '<td></td>' +
     '<td style="text-align:right">' + copperToGold(totalSpent) + '</td>' +
-    '<td style="text-align:right;color:var(--green)">' + copperToGold(totalProfit) + '</td>' +
-    '<td style="text-align:right;color:var(--green)">' + totalRoi + '%</td>' +
+    '<td style="text-align:right;color:var(--green)">' + copperToGold(totalProfit) + ' <span style="font-size:10px;color:var(--muted)">(' + totalRoi + '% ROI)</span></td>' +
     '</tr></tbody></table>';
 
   resultEl.innerHTML = html;
@@ -1535,7 +1827,7 @@ function runCapitalPlanner() {
 }
 
 function renderSpecRotation(items, currentSpec) {
-  const PROC_YIELD_VAL = 1.35;
+  const PROC_YIELD_VAL = 1.15;
   const RESPEC_COST    = 1_500_000; // 150g in copper
 
   function yieldForSpec(alchemyType, spec) {
@@ -1559,7 +1851,7 @@ function renderSpecRotation(items, currentSpec) {
     return alchemyItems.reduce((sum, r) => {
       const m = evForSpec(r, spec);
       if (m == null || m <= 0) return sum;
-      const cap = r.daily_cap != null ? Math.max(1, Math.round(r.daily_cap)) : 5;
+      const cap = r.daily_cap != null && r.daily_cap > 0 ? r.daily_cap : (r.daily_cap === 0 ? 0 : 5);
       return sum + m * cap;
     }, 0);
   }
@@ -1574,7 +1866,7 @@ function renderSpecRotation(items, currentSpec) {
       .sort((a, b) => b.m - a.m)
       .slice(0, 3)
       .map(({ r, m }) => {
-        const cap = r.daily_cap != null ? Math.max(1, Math.round(r.daily_cap)) : 5;
+        const cap = r.daily_cap != null && r.daily_cap > 0 ? r.daily_cap : (r.daily_cap === 0 ? 0 : 5);
         return '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">' +
           '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">' + escHtml(r.output_name) + '</span>' +
           '<span style="color:var(--green);white-space:nowrap;margin-left:6px">' + copperToGold(m) + ' &times;' + cap + '</span>' +
@@ -1617,38 +1909,112 @@ function renderSpecRotation(items, currentSpec) {
 }
 
 // ── Sales History widget ────────────────────────────────────────────────────
+let pnlChartInst = null;
+
 async function loadSalesHistory() {
-  const body = document.getElementById('sales-body');
-  const sub  = document.getElementById('sales-subtitle');
+  const body    = document.getElementById('sales-body');
+  const sub     = document.getElementById('sales-subtitle');
+  const wrap    = document.getElementById('pnl-chart-wrap');
   body.innerHTML = '<div class="widget-loading">Loading&hellip;</div>';
+  const charSel   = document.getElementById('sales-char-filter');
+  const charValue = charSel ? charSel.value : '';
+  const charParam = charValue ? `&character=${encodeURIComponent(charValue)}` : '';
   try {
     const [history, summary] = await Promise.all([
-      apiFetch('/api/sales/history?days=30&limit=20'),
-      apiFetch('/api/sales/summary?days=30'),
+      apiFetch(`/api/sales/history?days=30&limit=20${charParam}`),
+      apiFetch(`/api/sales/summary?days=30${charParam}`),
     ]);
+    let pnl = null;
+    try { pnl = await apiFetch(`/api/sales/pnl?days=30${charParam}`); } catch { /* optional */ }
 
     if (!history || !history.length) {
+      wrap.style.display = 'none';
       body.innerHTML = '<div class="widget-empty"><div>No sales history yet</div>' +
         '<div class="hint">Requires TSM_SAVEDVARS_PATH to be set and csvSales data present in TradeSkillMaster.lua</div></div>';
       return;
     }
 
-    if (summary && summary.total_revenue) {
-      sub.textContent = summary.total_sales + ' sales · ' + (summary.total_revenue / 10000).toFixed(1) + 'g revenue (30d)';
+    // ── P&L chart ──
+    if (pnl && pnl.length) {
+      wrap.style.display = 'block';
+      const labels   = pnl.map(d => new Date(d.day).toLocaleDateString('en-US', { month:'short', day:'numeric' }));
+      const revenue  = pnl.map(d => d.revenue  / 10000);
+      const expenses = pnl.map(d => d.expenses / 10000);
+      const net      = pnl.map(d => d.net_profit / 10000);
+      // Rolling 7-day net: sum of net over the trailing 7 days ending at each point
+      const rolling7 = net.map((_, i) => {
+        const slice = net.slice(Math.max(0, i - 6), i + 1);
+        return slice.reduce((s, v) => s + v, 0);
+      });
+      if (pnlChartInst) pnlChartInst.destroy();
+      pnlChartInst = new Chart(document.getElementById('pnl-chart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Revenue',  data: revenue,  backgroundColor: 'rgba(244,185,66,0.6)',   order: 3 },
+            { label: 'Expenses', data: expenses, backgroundColor: 'rgba(226,107,107,0.45)', order: 3 },
+            { label: 'Daily Net',   data: net,      type: 'line', borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.08)',
+              borderWidth: 1.5, pointRadius: 2, fill: true, tension: 0.3, order: 2, borderDash: [3,3] },
+            { label: '7d Net',   data: rolling7, type: 'line', borderColor: '#a78bfa',  backgroundColor: 'transparent',
+              borderWidth: 2, pointRadius: 0, fill: false, tension: 0.4, order: 1 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: true,
+          plugins: { legend: { labels: { color: '#b3acd0', font: { size: 10 } } },
+                     tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + (ctx.parsed.y >= 0 ? '+' : '') + ctx.parsed.y.toFixed(1) + 'g' } } },
+          scales: {
+            x: { stacked: false, ticks: { color: '#6f6892', font: { size: 9 } }, grid: { color: '#1a1538' } },
+            y: { ticks: { color: '#6f6892', font: { size: 9 }, callback: v => v.toFixed(0) + 'g' }, grid: { color: '#1a1538' } },
+          },
+        },
+      });
     }
 
-    // Header row
-    let html = '<div class="sales-row" style="padding:4px 16px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)">' +
-      '<div>Item</div><div>Revenue</div><div>Qty</div><div>Sales</div></div>';
+    // ── Summary subtitle ──
+    const totalRev = pnl ? pnl.reduce((s,d) => s + d.revenue,   0) : (summary?.total_revenue ?? 0);
+    const totalExp = pnl ? pnl.reduce((s,d) => s + d.expenses,  0) : 0;
+    const totalNet = totalRev - totalExp;
+    sub.textContent = (summary?.total_transactions || '') +
+      (summary?.total_transactions ? ' txns · ' : '') +
+      (totalRev / 10000).toFixed(0) + 'g revenue · ' +
+      (totalExp / 10000).toFixed(0) + 'g expenses · net ' +
+      (totalNet >= 0 ? '+' : '') + (totalNet / 10000).toFixed(0) + 'g (30d)';
 
-    html += history.map(r =>
-      '<div class="sales-row">' +
-      '<div class="sales-row-name">' + wowLink(r.item_id, r.item_name || ('Item #' + r.item_id)) + '</div>' +
-      '<div class="sales-revenue">' + copperToGold(r.total_revenue) + '</div>' +
-      '<div class="sales-meta">' + Number(r.total_qty).toLocaleString() + '</div>' +
-      '<div class="sales-meta">' + r.sale_count + '</div>' +
-      '</div>'
-    ).join('');
+    // ── Build per-item spend map from purchases ──
+    // Fetch purchase totals per item to compute per-item gross profit
+    let spendMap = {};
+    try {
+      const spendResult = await apiFetch('/api/sales/spend-by-item?days=30');
+      if (Array.isArray(spendResult)) {
+        spendResult.forEach(r => { spendMap[r.item_id] = Number(r.total_spent); });
+      }
+    } catch { /* optional — P&L column just shows "—" if unavailable */ }
+
+    // ── Table ──
+    let html = '<div class="sales-row" style="padding:4px 16px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border-strong)">' +
+      '<div>Item</div><div>Revenue</div><div>Gross P&amp;L</div><div>Qty</div><div>Txns</div></div>';
+
+    html += history.map(r => {
+      const spent  = spendMap[r.item_id] ?? null;
+      const profit = spent != null ? (r.total_revenue - spent) : null;
+      let profitCell;
+      if (profit == null) {
+        profitCell = '<div class="sales-profit neutral">&mdash;</div>';
+      } else if (profit >= 0) {
+        profitCell = '<div class="sales-profit pos">+' + copperToGold(profit) + '</div>';
+      } else {
+        profitCell = '<div class="sales-profit neg">' + copperToGold(profit) + '</div>';
+      }
+      return '<div class="sales-row">' +
+        '<div class="sales-row-name">' + wowLink(r.item_id, r.name || ('Item #' + r.item_id)) + '</div>' +
+        '<div class="sales-revenue">' + copperToGold(r.total_revenue) + '</div>' +
+        profitCell +
+        '<div class="sales-meta">' + Number(r.total_qty).toLocaleString() + '</div>' +
+        '<div class="sales-meta">' + r.transactions + '</div>' +
+        '</div>';
+    }).join('');
 
     body.innerHTML = html;
   } catch(e) {
@@ -1771,6 +2137,15 @@ function tickColors(rows, range) {
   });
 }
 
+function tsmAgeStr(syncedAt) {
+  if (!syncedAt) return null;
+  const ms = Date.now() - new Date(syncedAt).getTime();
+  const h  = Math.floor(ms / 3600000);
+  if (h < 1)  return '<1h ago';
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
 async function loadChart(itemId, itemName) {
   const panel = document.getElementById('chart-panel');
   panel.classList.add('visible');
@@ -1778,10 +2153,19 @@ async function loadChart(itemId, itemName) {
   document.getElementById('chart-stats').innerHTML = '';
   document.getElementById('weekly-panel').style.display = 'none';
   try {
-    const rows = await apiFetch('/api/prices/' + itemId + '?range=' + chartRange);
+    const data   = await apiFetch('/api/prices/' + itemId + '?range=' + chartRange);
+    const rows   = data.rows ?? [];
+    const tsm    = data.tsm  ?? {};
+    const tsmMv  = tsm.market_value != null ? tsm.market_value / 10000 : null;
+    const tsmHst = tsm.historical   != null ? tsm.historical   / 10000 : null;
+    const tsmAge = tsmAgeStr(tsm.synced_at);
+
     if (!rows.length) {
-      document.getElementById('chart-title').textContent = itemName + ' \u2014 no price history yet';
+      document.getElementById('chart-title').textContent = itemName + ' \u2014 no scan data';
       if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      document.getElementById('chart-stats').innerHTML =
+        (tsmMv  != null ? '<span>TSM Market: <span class="chart-stat-val">' + tsmMv.toFixed(2) + 'g</span>' + (tsmAge ? ' <span style="color:var(--muted);font-size:11px">(' + tsmAge + ')</span>' : '') + '</span>' : '<span style="color:var(--muted)">No price data</span>') +
+        (tsmHst != null ? '<span>TSM Hist: <span class="chart-stat-val">' + tsmHst.toFixed(2) + 'g</span></span>' : '');
       return;
     }
 
@@ -1797,17 +2181,27 @@ async function loadChart(itemId, itemName) {
     });
     const maLabel  = chartRange === '30d' ? '7-day MA' : chartRange === '7d' ? '3-day MA' : '6h MA';
 
+    const datasets = [
+      { label:'Floor Price', data:mins,   borderColor:'#3fb950', backgroundColor:'rgba(63,185,80,0.08)', borderWidth:2, tension:0.3, fill:true,  pointRadius: rows.length<=14 ? 4 : 2 },
+      { label:maLabel,       data:maData, borderColor:'#6e7681', backgroundColor:'transparent',          borderWidth:1.5, borderDash:[2,2], tension:0.3, pointRadius:0 },
+    ];
+    // TSM reference lines — flat horizontal bands from current TSM snapshot values.
+    if (tsmMv != null) datasets.push({
+      label: 'TSM Market', data: labels.map(() => +tsmMv.toFixed(4)),
+      borderColor:'rgba(244,185,66,0.7)', backgroundColor:'transparent',
+      borderWidth:1.5, borderDash:[5,4], tension:0, pointRadius:0,
+    });
+    if (tsmHst != null && Math.abs(tsmHst - (tsmMv ?? 0)) > 0.02) datasets.push({
+      label: 'TSM Historical', data: labels.map(() => +tsmHst.toFixed(4)),
+      borderColor:'rgba(130,110,180,0.45)', backgroundColor:'transparent',
+      borderWidth:1, borderDash:[2,6], tension:0, pointRadius:0,
+    });
+
     if (chartInstance) chartInstance.destroy();
     const ctx = document.getElementById('price-chart').getContext('2d');
     chartInstance = new Chart(ctx, {
       type: 'line',
-      data: {
-        labels,
-        datasets: [
-          { label:'Floor Price', data:mins,   borderColor:'#3fb950', backgroundColor:'rgba(63,185,80,0.08)', borderWidth:2, tension:0.3, fill:true, pointRadius: rows.length<=14 ? 4 : 2 },
-          { label:maLabel,       data:maData, borderColor:'#6e7681', backgroundColor:'transparent',          borderWidth:1.5, borderDash:[2,2], tension:0.3, pointRadius:0 },
-        ]
-      },
+      data: { labels, datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode:'index', intersect:false },
@@ -1844,7 +2238,8 @@ async function loadChart(itemId, itemName) {
     document.getElementById('chart-stats').innerHTML =
       '<span>Floor: <span class="chart-stat-val">' + (last.min_unit_price/10000).toFixed(2) + 'g</span></span>' +
       (supply != null ? '<span>Supply: <span class="chart-stat-val">' + supply + '</span></span>' : '') +
-      (rows.length > 1 ? '<span>Trend: <span style="color:' + trendColor + ';font-weight:600">' + trendSign + trendPct + '% over ' + (chartRange === '24h' ? '24h' : chartRange) + '</span></span>' : '');
+      (rows.length > 1 ? '<span>Trend: <span style="color:' + trendColor + ';font-weight:600">' + trendSign + trendPct + '% over ' + (chartRange === '24h' ? '24h' : chartRange) + '</span></span>' : '') +
+      (tsmMv != null ? '<span style="color:rgba(244,185,66,0.85)">TSM: <span class="chart-stat-val" style="color:rgba(244,185,66,0.85)">' + tsmMv.toFixed(2) + 'g</span>' + (tsmAge ? ' <span style="color:var(--muted);font-size:11px">(' + tsmAge + ')</span>' : '') + '</span>' : '');
 
     // Weekly pattern section (always fetch, shown when data is meaningful)
     loadWeeklyPattern(itemId);
@@ -2068,7 +2463,7 @@ async function loadWeeklyRotationChart(itemId, itemName) {
   document.getElementById('chart-stats').innerHTML = '';
   document.getElementById('weekly-panel').style.display = 'none';
 
-  const rows = await apiFetch('/api/prices/' + itemId + '?range=28d');
+  const { rows } = await apiFetch('/api/prices/' + itemId + '?range=28d');
   if (!rows || rows.length === 0) {
     document.getElementById('chart-title').textContent = itemName + ' \u2014 no data';
     return;
@@ -2293,6 +2688,63 @@ function buildProfCheckboxes() {
   });
 }
 
+// ── Linked Characters ──────────────────────────────────────────────────────
+function populateLinkedChars() {
+  const list  = document.getElementById('linked-chars-list');
+  if (!list) return;
+  const chars = (profile && Array.isArray(profile.linked_characters)) ? profile.linked_characters : [];
+  list.innerHTML = chars.length
+    ? chars.map(c =>
+        `<span class="linked-chip">${c}<button onclick="removeLinkedChar('${c.replace(/'/g,"\\'")}')">×</button></span>`
+      ).join('')
+    : '<span style="color:var(--text-3);font-size:12px">No linked characters</span>';
+}
+
+async function addLinkedChar() {
+  const input = document.getElementById('linked-char-input');
+  const name  = input.value.trim();
+  if (!name) return;
+  try {
+    const result = await apiFetch('/api/profile/linked-characters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add', character_name: name }),
+    });
+    if (!profile) profile = {};
+    profile.linked_characters = result.linked_characters;
+    input.value = '';
+    populateLinkedChars();
+    refreshSalesCharFilter();
+  } catch(e) { console.error('addLinkedChar failed', e); }
+}
+
+async function removeLinkedChar(name) {
+  try {
+    const result = await apiFetch('/api/profile/linked-characters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'remove', character_name: name }),
+    });
+    if (!profile) profile = {};
+    profile.linked_characters = result.linked_characters;
+    populateLinkedChars();
+    refreshSalesCharFilter();
+  } catch(e) { console.error('removeLinkedChar failed', e); }
+}
+
+async function refreshSalesCharFilter() {
+  const sel = document.getElementById('sales-char-filter');
+  if (!sel) return;
+  try {
+    const chars   = await apiFetch('/api/sales/characters');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All Characters</option>' +
+      (Array.isArray(chars) ? chars : []).map(c =>
+        `<option value="${c}"${c === current ? ' selected' : ''}>${c}</option>`
+      ).join('');
+  } catch(e) { /* non-fatal */ }
+}
+
 function populateSettingsForm() {
   buildProfCheckboxes();
   if (!profile) return;
@@ -2306,6 +2758,7 @@ function populateSettingsForm() {
   document.querySelectorAll('#prof-primary input, #prof-secondary input').forEach(cb => {
     cb.checked = profs.includes(cb.value);
   });
+  populateLinkedChars();
 }
 
 async function saveSettings() {
@@ -2321,7 +2774,8 @@ async function saveSettings() {
     profile = await apiFetch('/api/profile', {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ class: cls, spec, faction, race, professions: profs })
+      body: JSON.stringify({ class: cls, spec, faction, race, professions: profs,
+                             linked_characters: (profile && profile.linked_characters) || [] })
     });
     renderProfileBanner();
     closeSettings();
@@ -2342,24 +2796,158 @@ if ('serviceWorker' in navigator) {
   setInterval(() => navigator.sendBeacon('/api/heartbeat'), 8000);
 })();
 
+// ── Production tab ────────────────────────────────────────────────────────
+function fmtGold(copper) {
+  if (copper == null) return '—';
+  const g = Math.floor(copper / 10000);
+  const s = Math.floor((copper % 10000) / 100);
+  const c = copper % 100;
+  if (g > 0) return `${g.toLocaleString()}g ${s}s`;
+  if (s > 0) return `${s}s ${c}c`;
+  return `${c}c`;
+}
+
+async function loadGoldBalance() {
+  try {
+    const data = await apiFetch('/api/gold/balance');
+    goldData = data;
+    updatePlannerGoldBar();
+    autoRunPlanner();
+
+    // Also update the production tab display if it's visible
+    const el = document.getElementById('gold-balance-body');
+    if (!el) return;
+    if (!data.characters.length) {
+      el.innerHTML = '<div class="widget-empty"><span>No gold snapshots yet</span><span class="hint">Log in with the AHTrackerExport addon enabled and /reload</span></div>';
+      return;
+    }
+    const rows = data.characters.map(c => {
+      const snap = new Date(c.snapped_at).toLocaleString();
+      return `<div class="gold-char-row">
+        <div><div class="gold-char-name">${escHtml(c.character_name)}</div><div class="gold-char-snap">as of ${snap}</div></div>
+        <div class="gold-char-amount">${fmtGold(c.gold_copper)}</div>
+      </div>`;
+    }).join('');
+    const total = data.characters.length > 1
+      ? `<div class="gold-total-row"><span class="gold-total-label">Total across all characters</span><span class="gold-total-amount">${fmtGold(data.total_copper)}</span></div>`
+      : '';
+    el.innerHTML = `<div style="padding:4px 16px">${rows}${total}</div>`;
+  } catch(e) {
+    const el = document.getElementById('gold-balance-body');
+    if (el) el.innerHTML = '<div class="widget-empty">Failed to load gold balance</div>';
+  }
+}
+
+function updatePlannerGoldBar() {
+  const bar = document.getElementById('planner-gold-bar');
+  if (!bar || !goldData) return;
+  const chars = goldData.characters;
+  if (!chars.length) {
+    bar.innerHTML = '<span style="font-size:12px;color:var(--muted)">No gold data — log in with the addon enabled</span>';
+    return;
+  }
+  const total = goldData.total_copper;
+  // Show each character inline; strip HTML from fmtGold for the detail line
+  const detail = chars.length > 1
+    ? chars.map(c => escHtml(c.character_name) + ' ' + fmtGold(c.gold_copper).replace(/<[^>]+>/g, '')).join(' · ')
+    : '';
+  bar.innerHTML =
+    '<div class="planner-gold-display">' +
+    '<span class="planner-gold-label">Budget</span>' +
+    '<span class="planner-gold-amount">' + fmtGold(total) + '</span>' +
+    (detail ? '<span class="planner-gold-detail">' + detail + '</span>' : '') +
+    '</div>';
+}
+
+function autoRunPlanner() {
+  if (craftingData && goldData) runCapitalPlanner();
+}
+
+async function loadProductionSummary() {
+  const el = document.getElementById('prod-summary-body');
+  if (!el) return;
+  const days = document.getElementById('prod-days')?.value || 30;
+  try {
+    const rows = await apiFetch(`/api/production/summary?days=${days}`);
+    if (!rows.length) {
+      el.innerHTML = '<div class="widget-empty"><span>No craft data yet</span><span class="hint">Open your tradeskill window in-game and craft something</span></div>';
+      return;
+    }
+    const html = rows.map(r => {
+      const cost = fmtGold(r.avg_cost_per_unit);
+      let margin = '', marginClass = 'neutral';
+      if (r.current_price != null && r.avg_cost_per_unit > 0) {
+        const pct = ((r.current_price - r.avg_cost_per_unit) / r.avg_cost_per_unit * 100).toFixed(1);
+        margin = (pct >= 0 ? '+' : '') + pct + '%';
+        marginClass = pct >= 5 ? 'pos' : pct < 0 ? 'neg' : 'neutral';
+      }
+      const link = r.item_id ? wowLink(r.item_id, r.item_name) : escHtml(r.item_name);
+      return `<div class="prod-summary-row">
+        <div class="prod-item-name">${link}</div>
+        <div class="prod-qty" title="Total crafted">${r.total_crafted.toLocaleString()} crafted</div>
+        <div class="prod-cost" title="Avg mat cost per unit">${cost}/ea</div>
+        <div class="prod-margin ${marginClass}" title="vs current AH price">${margin || '—'}</div>
+      </div>`;
+    }).join('');
+    el.innerHTML = html;
+    if (window.$WowheadPower) window.$WowheadPower.refreshLinks();
+  } catch(e) {
+    el.innerHTML = '<div class="widget-empty">Failed to load production summary</div>';
+  }
+}
+
+async function loadProductionLog() {
+  const el = document.getElementById('prod-log-body');
+  if (!el) return;
+  try {
+    const rows = await apiFetch('/api/production/log?days=30');
+    if (!rows.length) {
+      el.innerHTML = '<div class="widget-empty"><span>No craft events logged</span><span class="hint">Craft something in-game with the addon enabled</span></div>';
+      return;
+    }
+    const html = rows.map(r => {
+      const when = new Date(r.crafted_at).toLocaleString();
+      const link = r.item_id ? wowLink(r.item_id, r.item_name) : escHtml(r.item_name);
+      const mats = (r.mats || []).map(m => {
+        const costLabel = m.price_per > 0 ? ` · ${fmtGold(m.price_per)}/ea` : ' · gathered';
+        return `<span class="craft-mat-chip">${escHtml(m.item_name)} ×${m.qty}${costLabel}</span>`;
+      }).join('');
+      const costLabel = r.cost_per_unit > 0
+        ? `${fmtGold(r.cost_per_unit)}/ea`
+        : '<span style="color:var(--emerald);font-size:11px">gathered mats</span>';
+      return `<div class="craft-log-row">
+        <div class="craft-log-header">
+          <div class="craft-log-name">${link} <span style="color:var(--text-2);font-weight:400">×${r.quantity}</span></div>
+          <div class="craft-log-time">${escHtml(r.character_name)} · ${when}</div>
+          <div class="craft-log-cost">${costLabel}</div>
+        </div>
+        <div class="craft-log-mats">${mats}</div>
+      </div>`;
+    }).join('');
+    el.innerHTML = html;
+    if (window.$WowheadPower) window.$WowheadPower.refreshLinks();
+  } catch(e) {
+    el.innerHTML = '<div class="widget-empty">Failed to load craft log</div>';
+  }
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
   await loadProfile();
   await loadWatchlist();
-  loadMotes();
-  loadCrafting();
-  loadFlaskWidget();
-  loadAlchemyMarket();
-  loadSalesHistory();
+  loadGoldBalance();  // fetch gold early so planner can auto-run alongside crafting
+  loadCrafting();     // dashboard: Crafting Profits + Capital Planner + Transmutes
 }
 
-// Auto-refresh every 60s
+// Auto-refresh every 60s — Markets tab widgets only refresh once visited
 setInterval(() => {
-  loadMotes();
   loadCrafting();
-  loadFlaskWidget();
-  loadAlchemyMarket();
-  loadSalesHistory();
+  if (marketsLoaded) {
+    loadFlaskWidget();
+    loadMotes();
+    loadAlchemyMarket();
+    loadSalesHistory();
+  }
   if (selectedItem) openChart(selectedItem.item_id, selectedItem.item_name);
   watchlist.forEach(w => fetchTickerStats(w.item_id));
 }, 60_000);

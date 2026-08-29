@@ -17,6 +17,7 @@
 import 'dotenv/config';
 import fs from 'fs';
 import { pool } from './db.js';
+import { log } from './logger.js';
 
 const TSM_APP_DATA_PATH = process.env.TSM_APP_DATA_PATH;
 const POLL_INTERVAL_MS  = 10_000;
@@ -25,13 +26,13 @@ let lastMtime = null;
 
 export function startTsmImporter() {
     if (!TSM_APP_DATA_PATH) {
-        console.warn('[tsm] TSM_APP_DATA_PATH not set — TSM importer disabled');
+        log.warn('tsm', 'TSM_APP_DATA_PATH not set — TSM importer disabled');
         return;
     }
     if (!fs.existsSync(TSM_APP_DATA_PATH)) {
-        console.warn(`[tsm] AppData.lua not found at: ${TSM_APP_DATA_PATH}`);
+        log.warn('tsm', 'AppData.lua not found', { path: TSM_APP_DATA_PATH });
     }
-    console.log(`[tsm] Watching: ${TSM_APP_DATA_PATH}`);
+    log.info('tsm', 'Watching AppData.lua', { path: TSM_APP_DATA_PATH });
     importIfChanged();
     setInterval(importIfChanged, POLL_INTERVAL_MS);
 }
@@ -48,11 +49,11 @@ async function importIfChanged() {
         const mtime = stat.mtimeMs;
         if (mtime === lastMtime) return;
         lastMtime = mtime;
-        console.log('[tsm] AppData.lua changed — importing market context…');
+        log.info('tsm', 'AppData.lua changed — importing market context');
         await importTsmData();
     } catch (err) {
         if (err.code === 'ENOENT') return;
-        console.error('[tsm] Error checking file:', err.message);
+        log.error('tsm', 'Error checking AppData.lua', err);
     }
 }
 
@@ -134,7 +135,7 @@ async function importTsmData() {
     try {
         content = fs.readFileSync(TSM_APP_DATA_PATH, 'utf8');
     } catch (err) {
-        console.error('[tsm] Could not read AppData.lua:', err.message);
+        log.error('tsm', 'Could not read AppData.lua', err);
         return;
     }
 
@@ -147,7 +148,6 @@ async function importTsmData() {
     const regionHist    = parseBlock(content, 'AUCTIONDB_REGION_HISTORICAL');
 
     // Reduce to per-item values
-    const minBuyout       = reduceEntries(dataBlock,     'minBuyout',        'min');
     const numAuctions     = reduceEntries(dataBlock,     'numAuctions',      'sum');
     const tsmMarketValue  = reduceEntries(scanStatBlock, 'marketValue',      'min');
     const tsmHistorical   = reduceEntries(histBlock,     'historical',       'min');
@@ -168,7 +168,7 @@ async function importTsmData() {
     ]);
 
     if (allIds.size === 0) {
-        console.warn('[tsm] No items parsed — check TSM_APP_DATA_PATH and sync status');
+        log.warn('tsm', 'No items parsed — check TSM_APP_DATA_PATH and sync status');
         return;
     }
 
@@ -215,25 +215,9 @@ async function importTsmData() {
         updated += chunk.length;
     }
 
-    console.log(`[tsm] Market context updated for ${updated} items`);
-
-    // ── Write price snapshots for time-series charts ─────────────────────────
-    // minBuyout gives a data point every 30 min even when the web app is closed.
-    // source='tsm' distinguishes these from Auctionator scan rows.
-    const snapIds    = [];
-    const snapPrices = [];
-    for (const [id, price] of minBuyout) {
-        snapIds.push(id);
-        snapPrices.push(price);
-    }
-
-    if (snapIds.length > 0) {
-        await pool.query(
-            `INSERT INTO ah_snapshots (item_id, buyout, quantity, time_left, source)
-             SELECT unnest($1::int[]), unnest($2::bigint[]), 1, 'LONG', 'tsm'`,
-            [snapIds, snapPrices]
-        );
-        await pool.query('REFRESH MATERIALIZED VIEW CONCURRENTLY ah_price_hourly');
-        console.log(`[tsm] Inserted ${snapIds.length} price snapshots, view refreshed`);
-    }
+    log.info('tsm', 'Market context updated', { items: updated });
+    // TSM AppHelper data is NOT inserted as price snapshots.
+    // AppHelper downloads server-estimated values from TSM's cloud — not a live AH scan.
+    // The minBuyout field is TSM's computed estimate and consistently runs 30-70g above
+    // actual AH floor prices. Price history comes only from Blizzard API (Auctionator) scans.
 }

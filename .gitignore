@@ -70,6 +70,9 @@ web_modules/
 .env.*
 !.env.example
 
+# Claude Code local config (contains machine-specific paths and permissions)
+.claude/
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
